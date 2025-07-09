@@ -2,18 +2,18 @@
 """StageLinq now playing app."""
 
 import asyncio
+import logging
 import signal
 import sys
-import logging
-import socket
 from datetime import datetime
-from stagelinq.discovery import discover_stagelinq_devices, DiscoveryConfig
-from stagelinq.value_names import DeckValueNames
+
+from stagelinq.discovery import DiscoveryConfig, discover_stagelinq_devices
 from stagelinq.messages import Token
+from stagelinq.value_names import DeckValueNames
 
 # Suppress noisy protocol errors - these are expected when IPv6 is available
 # but StageLinq devices only support IPv4
-logging.getLogger('stagelinq.protocol').setLevel(logging.CRITICAL)
+logging.getLogger("stagelinq.protocol").setLevel(logging.CRITICAL)
 
 
 class NowPlayingApp:
@@ -54,7 +54,7 @@ class NowPlayingApp:
                 print(f"  Track:  {deck['track'] or 'Unknown'}")
                 print(f"  BPM:    {deck['bpm']:.1f}")
             else:
-                print(f"  No track loaded")
+                print("  No track loaded")
             print()
 
         print("Press Ctrl+C to exit")
@@ -99,7 +99,9 @@ class NowPlayingApp:
         while self.running:
             try:
                 # Create client token
-                client_token = Token(b'\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x05\x95\x04\x14\x1c')
+                client_token = Token(
+                    b"\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x05\x95\x04\x14\x1c"
+                )
 
                 # Connect to device
                 connection = device.connect(client_token)
@@ -126,8 +128,10 @@ class NowPlayingApp:
 
                             for state_name in track_states:
                                 try:
-                                    await state_map.subscribe(state_name, 100)  # 100ms interval
-                                except Exception as e:
+                                    await state_map.subscribe(
+                                        state_name, 100
+                                    )  # 100ms interval
+                                except Exception:
                                     # Some states might not be available, continue
                                     pass
 
@@ -161,13 +165,7 @@ class NowPlayingApp:
         """Process a state update and update deck information."""
         self.last_update = datetime.now()
 
-        # Parse deck number from state name
-        deck_num = None
-        for i in range(1, 5):
-            if f"Deck{i}" in state.name:
-                deck_num = i
-                break
-
+        deck_num = next((i for i in range(1, 5) if f"Deck{i}" in state.name), None)
         if deck_num is None:
             return
 

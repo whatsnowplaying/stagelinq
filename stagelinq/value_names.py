@@ -5,27 +5,59 @@ This module provides constants for known StageLinq state value names.
 """
 
 # Global constants
-CLIENT_LIBRARIAN_DEVICES_CONTROLLER_CURRENT_DEVICE = "/Client/Librarian/DevicesController/CurrentDevice"
-CLIENT_LIBRARIAN_DEVICES_CONTROLLER_HAS_SD_CARD_CONNECTED = "/Client/Librarian/DevicesController/HasSDCardConnected"
-CLIENT_LIBRARIAN_DEVICES_CONTROLLER_HAS_USB_DEVICE_CONNECTED = "/Client/Librarian/DevicesController/HasUsbDeviceConnected"
+CLIENT_LIBRARIAN_DEVICES_CONTROLLER_CURRENT_DEVICE = (
+    "/Client/Librarian/DevicesController/CurrentDevice"
+)
+CLIENT_LIBRARIAN_DEVICES_CONTROLLER_HAS_SD_CARD_CONNECTED = (
+    "/Client/Librarian/DevicesController/HasSDCardConnected"
+)
+CLIENT_LIBRARIAN_DEVICES_CONTROLLER_HAS_USB_DEVICE_CONNECTED = (
+    "/Client/Librarian/DevicesController/HasUsbDeviceConnected"
+)
 CLIENT_PREFERENCES_LAYER_A = "/Client/Preferences/LayerA"
 CLIENT_PREFERENCES_LAYER_B = "/Client/Preferences/LayerB"
 CLIENT_PREFERENCES_PLAYER = "/Client/Preferences/Player"
 CLIENT_PREFERENCES_PLAYER_JOG_COLOR_A = "/Client/Preferences/PlayerJogColorA"
 CLIENT_PREFERENCES_PLAYER_JOG_COLOR_B = "/Client/Preferences/PlayerJogColorB"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_1 = "/Client/Preferences/Profile/Application/PlayerColor1"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_1A = "/Client/Preferences/Profile/Application/PlayerColor1A"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_1B = "/Client/Preferences/Profile/Application/PlayerColor1B"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_2 = "/Client/Preferences/Profile/Application/PlayerColor2"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_2A = "/Client/Preferences/Profile/Application/PlayerColor2A"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_2B = "/Client/Preferences/Profile/Application/PlayerColor2B"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_3 = "/Client/Preferences/Profile/Application/PlayerColor3"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_3A = "/Client/Preferences/Profile/Application/PlayerColor3A"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_3B = "/Client/Preferences/Profile/Application/PlayerColor3B"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_4 = "/Client/Preferences/Profile/Application/PlayerColor4"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_4A = "/Client/Preferences/Profile/Application/PlayerColor4A"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_4B = "/Client/Preferences/Profile/Application/PlayerColor4B"
-CLIENT_PREFERENCES_PROFILE_APPLICATION_SYNC_MODE = "/Client/Preferences/Profile/Application/SyncMode"
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_1 = (
+    "/Client/Preferences/Profile/Application/PlayerColor1"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_1A = (
+    "/Client/Preferences/Profile/Application/PlayerColor1A"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_1B = (
+    "/Client/Preferences/Profile/Application/PlayerColor1B"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_2 = (
+    "/Client/Preferences/Profile/Application/PlayerColor2"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_2A = (
+    "/Client/Preferences/Profile/Application/PlayerColor2A"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_2B = (
+    "/Client/Preferences/Profile/Application/PlayerColor2B"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_3 = (
+    "/Client/Preferences/Profile/Application/PlayerColor3"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_3A = (
+    "/Client/Preferences/Profile/Application/PlayerColor3A"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_3B = (
+    "/Client/Preferences/Profile/Application/PlayerColor3B"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_4 = (
+    "/Client/Preferences/Profile/Application/PlayerColor4"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_4A = (
+    "/Client/Preferences/Profile/Application/PlayerColor4A"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_PLAYER_COLOR_4B = (
+    "/Client/Preferences/Profile/Application/PlayerColor4B"
+)
+CLIENT_PREFERENCES_PROFILE_APPLICATION_SYNC_MODE = (
+    "/Client/Preferences/Profile/Application/SyncMode"
+)
 ENGINE_DECK_COUNT = "/Engine/DeckCount"
 ENGINE_MASTER_MASTER_TEMPO = "/Engine/Master/MasterTempo"
 ENGINE_SYNC_NETWORK_MASTER_STATUS = "/Engine/Sync/Network/MasterStatus"

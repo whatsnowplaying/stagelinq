@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-from typing import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable
 
 from .messages import serializer
 
@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 class StageLinqProtocol(asyncio.DatagramProtocol):
     """UDP protocol handler for StageLinq discovery."""
 
-    def __init__(self, message_handler: Callable[[bytes, tuple[str, int]], None]) -> None:
+    def __init__(
+        self, message_handler: Callable[[bytes, tuple[str, int]], None]
+    ) -> None:
         self.message_handler = message_handler
         self.transport: asyncio.DatagramTransport | None = None
 
@@ -29,16 +31,16 @@ class StageLinqProtocol(asyncio.DatagramProtocol):
         try:
             self.message_handler(data, addr)
         except Exception as e:
-            logger.error(f"Error handling datagram from {addr}: {e}")
+            logger.error("Error handling datagram from %s: %s", addr, e)
 
     def error_received(self, exc: Exception) -> None:
         """Called when an error is received."""
-        logger.error(f"StageLinq protocol error: {exc}")
+        logger.error("StageLinq protocol error: %s", exc)
 
     def connection_lost(self, exc: Exception | None) -> None:
         """Called when connection is lost."""
         if exc:
-            logger.error(f"StageLinq connection lost: {exc}")
+            logger.error("StageLinq connection lost: %s", exc)
         else:
             logger.debug("StageLinq connection closed")
 
@@ -61,16 +63,35 @@ class MessageStream:
             length_data = await self.reader.readexactly(4)
             message_length = serializer.read_uint32(io.BytesIO(length_data))
 
-            # Read message data
-            message_data = await self.reader.readexactly(message_length)
-            return message_data
+            # Validate message length
+            if message_length > 10 * 1024 * 1024:  # 10MB limit
+                logger.warning(
+                    "Message length too large: %d bytes, dropping message",
+                    message_length,
+                )
+                return None
 
-        except asyncio.IncompleteReadError:
-            # Connection closed
-            logger.debug("Message stream connection closed")
-            return None
+            # Read the message data
+            return await self.reader.readexactly(message_length)
+
+        except asyncio.IncompleteReadError as e:
+            # Check if this is a partial read (we got length but not full message)
+            if e.partial and len(e.partial) > 0:
+                logger.warning(
+                    "Partial message read detected: got %d bytes, expected %d bytes. Data may be lost.",
+                    len(e.partial),
+                    e.expected,
+                )
+                # This is data loss - we should consider raising an exception
+                raise ConnectionError(
+                    "Stream closed during message read, data lost"
+                ) from e
+            else:
+                # Normal connection close (no data read yet)
+                logger.debug("Message stream connection closed")
+                return None
         except Exception as e:
-            logger.error(f"Error reading message: {e}")
+            logger.error("Error reading message: %s", e)
             return None
 
     async def write_message(self, data: bytes) -> None:
@@ -89,7 +110,7 @@ class MessageStream:
             await self.writer.drain()
 
         except Exception as e:
-            logger.error(f"Error writing message: {e}")
+            logger.error("Error writing message: %s", e)
             raise
 
     async def messages(self) -> AsyncIterator[bytes]:
@@ -183,12 +204,12 @@ class StageLinqStreamProtocol(asyncio.Protocol):
         self._stream_buffer = io.BytesIO(remaining_data)
 
         if messages_processed > 0:
-            logger.debug(f"Processed {messages_processed} messages")
+            logger.debug("Processed %s messages", messages_processed)
 
     def connection_lost(self, exc: Exception | None) -> None:
         """Called when connection is lost."""
         if exc:
-            logger.error(f"StageLinq stream connection lost: {exc}")
+            logger.error("StageLinq stream connection lost: %s", exc)
         else:
             logger.debug("StageLinq stream connection closed")
 
@@ -202,24 +223,18 @@ class StageLinqStreamProtocol(asyncio.Protocol):
             connection_task = asyncio.create_task(self._connection_lost.wait())
 
             done, pending = await asyncio.wait(
-                [message_task, connection_task],
-                return_when=asyncio.FIRST_COMPLETED
+                [message_task, connection_task], return_when=asyncio.FIRST_COMPLETED
             )
 
             # Cancel pending tasks
             for task in pending:
                 task.cancel()
 
-            if message_task in done:
-                return message_task.result()
-            else:
-                # Connection lost
-                return None
-
+            return message_task.result() if message_task in done else None
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.error(f"Error reading message: {e}")
+            logger.error("Error reading message: %s", e)
             return None
 
     async def write_message(self, data: bytes) -> None:
@@ -260,16 +275,20 @@ class StageLinqConnection:
 
         try:
             self._stream = await connect_message_stream(self.host, self.port)
-            logger.info(f"Connected to StageLinq service at {self.host}:{self.port}")
+            logger.info("Connected to StageLinq service at %s:%s", self.host, self.port)
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to {self.host}:{self.port}: {e}")
+            raise ConnectionError(
+                f"Failed to connect to {self.host}:{self.port}: {e}"
+            ) from e
 
     async def disconnect(self) -> None:
         """Disconnect from the StageLinq service."""
         if self._stream:
             await self._stream.close()
             self._stream = None
-            logger.info(f"Disconnected from StageLinq service at {self.host}:{self.port}")
+            logger.info(
+                "Disconnected from StageLinq service at %s:%s", self.host, self.port
+            )
 
     async def send_message(self, message_data: bytes) -> None:
         """Send a message to the service."""
@@ -301,9 +320,8 @@ class StageLinqConnection:
 
         # Get the local port from the writer's transport
         transport = self._stream.writer.transport
-        if transport and hasattr(transport, 'get_extra_info'):
-            sockname = transport.get_extra_info('sockname')
-            if sockname:
+        if transport and hasattr(transport, "get_extra_info"):
+            if sockname := transport.get_extra_info("sockname"):
                 return sockname[1]  # (host, port) tuple
 
         return 0  # Fallback if unable to get port

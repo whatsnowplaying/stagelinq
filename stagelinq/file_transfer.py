@@ -6,29 +6,28 @@ https://github.com/icedream/go-stagelinq/issues/8
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import io
 import logging
-import struct
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator, Union
+from typing import BinaryIO
 
-from .messages import Token, Message, serializer
+from .messages import Message, Token, serializer
 from .protocol import StageLinqConnection
 
 logger = logging.getLogger(__name__)
 
 # FileTransfer protocol constants
 FLTX_MAGIC = b"fltx"
-FILE_TRANSFER_REQUEST_SOURCES = 0x7d2
+FILE_TRANSFER_REQUEST_SOURCES = 0x7D2
 FILE_TRANSFER_REQUEST_END = 0x0
 
 
 @dataclass
 class FileInfo:
     """Information about a file on the StageLinq device."""
+
     path: str
     name: str
     size: int | None = None
@@ -44,8 +43,91 @@ class FileInfo:
 @dataclass
 class FileSource:
     """Information about a file source on the StageLinq device."""
+
     name: str
     database_path: str
+
+
+class FileAnnouncementMessage(Message):
+    """File announcement message using fltx protocol."""
+
+    def __init__(self, path: str = "", message_type: int = 0, size: int = 0):
+        self.path = path
+        self.message_type = message_type
+        self.size = size
+
+    def read_from(self, reader: BinaryIO) -> None:
+        """Read file announcement message from stream."""
+        # Read magic
+        magic = reader.read(4)
+        if magic != FLTX_MAGIC:
+            raise ValueError(f"Invalid magic: expected {FLTX_MAGIC}, got {magic}")
+
+        # Read unknown field (usually 0)
+        _unknown1 = serializer.read_uint32(reader)
+
+        # Read message type
+        self.message_type = serializer.read_uint32(reader)
+
+        # Read size field
+        self.size = serializer.read_uint32(reader)
+
+        # Read path as UTF-16BE string
+        path_data = reader.read()
+        if path_data:
+            self.path = path_data.decode("utf-16be").rstrip("\x00")
+        else:
+            self.path = ""
+
+    def write_to(self, writer: BinaryIO) -> None:
+        """Write file announcement message to stream."""
+        # Write magic
+        writer.write(FLTX_MAGIC)
+
+        # Write unknown field (0)
+        serializer.write_uint32(writer, 0)
+
+        # Write message type
+        serializer.write_uint32(writer, self.message_type)
+
+        # Write size
+        serializer.write_uint32(writer, self.size)
+
+        # Write path as UTF-16BE
+        if self.path:
+            path_data = self.path.encode("utf-16be")
+            writer.write(path_data)
+
+    def serialize(self) -> bytes:
+        """Serialize message with length prefix."""
+        # First serialize the message content
+        content = io.BytesIO()
+        self.write_to(content)
+        content_bytes = content.getvalue()
+
+        # Then add length prefix
+        output = io.BytesIO()
+        serializer.write_uint32(output, len(content_bytes))
+        output.write(content_bytes)
+        return output.getvalue()
+
+    @classmethod
+    def deserialize(cls, data: bytes) -> FileAnnouncementMessage:
+        """Deserialize message from bytes."""
+        reader = io.BytesIO(data)
+
+        # Read length prefix
+        length = serializer.read_uint32(reader)
+
+        # Read message content
+        content = reader.read(length)
+        content_reader = io.BytesIO(content)
+
+        # Create instance and read from content
+        instance = cls()
+        instance.read_from(content_reader)
+        return instance
+
     database_size: int
 
     def __str__(self) -> str:
@@ -58,19 +140,19 @@ class FileTransferRequestMessage(Message):
     def __init__(self, request_type: int = FILE_TRANSFER_REQUEST_SOURCES):
         self.request_type = request_type
 
-    def read_from(self, reader: io.BinaryIO) -> None:
+    def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
         # Read request type
         self.request_type = serializer.read_uint32(reader)
 
-    def write_to(self, writer: io.BinaryIO) -> None:
+    def write_to(self, writer: BinaryIO) -> None:
         """Write message to stream."""
         # Write request type
         serializer.write_uint32(writer, self.request_type)
         # Write end marker
         serializer.write_uint32(writer, FILE_TRANSFER_REQUEST_END)
         # Write final marker
-        writer.write(b'\x01')
+        writer.write(b"\x01")
 
 
 class FileTransferResponseMessage(Message):
@@ -79,7 +161,7 @@ class FileTransferResponseMessage(Message):
     def __init__(self):
         self.sources: list[FileSource] = []
 
-    def read_from(self, reader: io.BinaryIO) -> None:
+    def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
         # Read all available data
         data = reader.read()
@@ -94,36 +176,37 @@ class FileTransferResponseMessage(Message):
                 # This is a simplified parser - the actual protocol might be more complex
                 if pos + 4 < len(data):
                     # Try to find UTF-16 strings (source names)
-                    if data[pos:pos+2] == b'\x00\x00':
+                    if data[pos : pos + 2] == b"\x00\x00":
                         pos += 2
                         continue
 
                     # Look for string patterns
                     if pos + 10 < len(data):
                         # Try to extract string
-                        try:
+                        with contextlib.suppress(Exception):
                             # Check for UTF-16 string
-                            string_data = data[pos:pos+50]
-                            if b'\x00' in string_data:
+                            string_data = data[pos : pos + 50]
+                            if b"\x00" in string_data:
                                 # Might be UTF-16
-                                null_pos = string_data.find(b'\x00')
+                                null_pos = string_data.find(b"\x00")
                                 if null_pos > 0 and null_pos % 2 == 0:
-                                    utf16_data = string_data[:null_pos+1]
-                                    source_name = utf16_data.decode('utf-16le').rstrip('\x00')
+                                    utf16_data = string_data[: null_pos + 1]
+                                    source_name = utf16_data.decode("utf-16le").rstrip(
+                                        "\x00"
+                                    )
                                     if source_name and len(source_name) > 2:
                                         # Found a potential source name
-                                        logger.debug(f"Found potential source: {source_name}")
-                        except:
-                            pass
+                                        logger.debug(
+                                            "Found potential source: %s", source_name
+                                        )
                 pos += 1
-            except:
+            except Exception:
                 break
 
-    def write_to(self, writer: io.BinaryIO) -> None:
+    def write_to(self, writer: BinaryIO) -> None:
         """Write message to stream."""
         # FileTransferResponseMessage is typically only read, not written
         # But we need to implement this for the abstract base class
-        pass
 
 
 class FileTransferConnection:
@@ -153,16 +236,18 @@ class FileTransferConnection:
         try:
             self._connection = StageLinqConnection(self.host, self.port)
             await self._connection.connect()
-            logger.info(f"Connected to FileTransfer at {self.host}:{self.port}")
+            logger.info("Connected to FileTransfer at %s:%s", self.host, self.port)
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to FileTransfer service: {e}")
+            raise ConnectionError(
+                "Failed to connect to FileTransfer service: %s", e
+            ) from e
 
     async def disconnect(self) -> None:
         """Disconnect from FileTransfer service."""
         if self._connection:
             await self._connection.disconnect()
             self._connection = None
-        logger.info(f"Disconnected from FileTransfer at {self.host}:{self.port}")
+        logger.info("Disconnected from FileTransfer at %s:%s", self.host, self.port)
 
     async def get_sources(self) -> list[FileSource]:
         """Get available file sources from the device."""
@@ -191,7 +276,9 @@ class FileTransferConnection:
         self._sources = response.sources
         return self._sources
 
-    async def download_database(self, source_name: str, local_path: Union[str, Path] | None = None) -> bytes:
+    async def download_database(
+        self, source_name: str, local_path: str | Path | None = None
+    ) -> bytes:
         """Download the Engine Library database from a specific source.
 
         Args:
@@ -208,13 +295,7 @@ class FileTransferConnection:
         if not self._sources:
             await self.get_sources()
 
-        # Find the requested source
-        source = None
-        for s in self._sources:
-            if s.name == source_name:
-                source = s
-                break
-
+        source = next((s for s in self._sources if s.name == source_name), None)
         if not source:
             raise FileNotFoundError(f"Source not found: {source_name}")
 
@@ -225,7 +306,7 @@ class FileTransferConnection:
         logger.warning("File download not yet implemented - placeholder return")
         return b""
 
-    async def get_database_info(self, source_name: str) -> dict:
+    async def get_database_info(self, source_name: str) -> dict[str, str]:
         """Get database information for a specific source.
 
         Args:
@@ -245,9 +326,8 @@ class FileTransferConnection:
         for source in self._sources:
             if source.name == source_name:
                 return {
-                    'source_name': source.name,
-                    'database_path': source.database_path,
-                    'database_size': source.database_size
+                    "source_name": source.name,
+                    "database_path": source.database_path,
                 }
 
         raise FileNotFoundError(f"Source not found: {source_name}")

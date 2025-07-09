@@ -5,21 +5,100 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from contextlib import asynccontextmanager
+import re
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from typing import AsyncIterator
+from enum import Enum
 
 from .discovery import Device
-from .messages import Token, StateSubscribeMessage, StateEmitMessage, BeatInfoStartStreamMessage, BeatEmitMessage
-from .protocol import StageLinqConnection, MessageStream
 from .file_transfer import FileTransferConnection
+from .messages import (
+    BeatEmitMessage,
+    BeatInfoStartStreamMessage,
+    BeatInfoStopStreamMessage,
+    ReferenceMessage,
+    ServiceAnnouncementMessage,
+    ServicesRequestMessage,
+    StateEmitMessage,
+    StateSubscribeMessage,
+    Token,
+    format_interval,
+)
+from .protocol import StageLinqConnection
 
 logger = logging.getLogger(__name__)
+
+
+class DeviceRegistry:
+    """Collection of discovered StageLinq devices."""
+
+    def __init__(self) -> None:
+        self._devices: list[Device] = []
+
+    def add_device(self, device: Device) -> None:
+        """Add a device to the registry."""
+        # Avoid duplicates based on token
+        if all(d.token.data != device.token.data for d in self._devices):
+            self._devices.append(device)
+
+    def find_device_by_uuid(self, uuid: str) -> Device | None:
+        """Find a device by UUID (with or without hyphens)."""
+        # Remove hyphens to match token format
+        uuid_no_hyphens = uuid.replace("-", "")
+
+        return next(
+            (
+                device
+                for device in self._devices
+                if device.token.data.hex() == uuid_no_hyphens
+            ),
+            None,
+        )
+
+    def find_device_by_token(self, token: Token) -> Device | None:
+        """Find a device by token."""
+        return next(
+            (device for device in self._devices if device.token.data == token.data),
+            None,
+        )
+
+    def parse_channel_assignment(self, assignment_str: str) -> str:
+        """Parse a channel assignment string and return human-readable format."""
+        if not assignment_str or "{" not in assignment_str:
+            return assignment_str
+
+        try:
+            # Extract UUID part
+            uuid_part = assignment_str.split("{")[1].split("}")[0]
+            device = self.find_device_by_uuid(uuid_part)
+
+            if device and "," in assignment_str:
+                channel_num = assignment_str.split(",")[-1]
+                return f"{device.name} channel {channel_num}"
+            if device:
+                return f"{device.name} ({assignment_str})"
+            return assignment_str
+        except (IndexError, ValueError):
+            return assignment_str
+
+    def list_devices(self) -> list[Device]:
+        """List all registered devices."""
+        return self._devices.copy()
+
+    def __len__(self) -> int:
+        """Return number of devices in registry."""
+        return len(self._devices)
+
+    def __iter__(self):
+        """Iterate over devices."""
+        return iter(self._devices)
 
 
 @dataclass
 class Service:
     """Represents a StageLinq service."""
+
     name: str
     port: int
 
@@ -27,9 +106,20 @@ class Service:
         return f"{self.name}:{self.port}"
 
 
+class StateCategory(Enum):
+    """Categories of device states."""
+
+    TRACK_INFO = "track_info"
+    DECK_STATE = "deck_state"
+    SUBSCRIPTION = "subscription"
+    CHANNEL_ASSIGNMENT = "channel_assignment"
+    OTHER = "other"
+
+
 @dataclass
 class State:
     """Represents a device state value."""
+
     name: str
     value: any
 
@@ -40,6 +130,7 @@ class State:
 @dataclass
 class BeatInfo:
     """Represents beat timing information."""
+
     clock: int
     players: list[PlayerInfo]
     timelines: list[float]
@@ -51,6 +142,7 @@ class BeatInfo:
 @dataclass
 class PlayerInfo:
     """Information about a player's beat state."""
+
     beat: float
     total_beats: float
     bpm: float
@@ -85,19 +177,33 @@ class DeviceConnection:
         try:
             self._connection = StageLinqConnection(self.device.ip, self.device.port)
             await self._connection.connect()
-            logger.info(f"Connected to device {self.device}")
+            logger.info("Connected to device %s", self.device)
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to {self.device}: {e}")
+            raise ConnectionError("Failed to connect to %s: %s", self.device, e) from e
 
     async def disconnect(self) -> None:
         """Disconnect from the device."""
         if self._connection:
             await self._connection.disconnect()
             self._connection = None
-        logger.info(f"Disconnected from device {self.device}")
+        logger.info("Disconnected from device %s", self.device)
 
-    async def discover_services(self) -> list[Service]:
-        """Discover available services on the device."""
+    async def discover_services(
+        self, timeout: float = 5.0, max_messages: int = 100
+    ) -> list[Service]:
+        """Discover available services on the device.
+
+        Args:
+            timeout: Maximum time to wait for service discovery (seconds)
+            max_messages: Maximum number of messages to process
+
+        Returns:
+            List of discovered services
+
+        Raises:
+            TimeoutError: If service discovery times out
+            ConnectionError: If connection to device fails
+        """
         if self._services is not None:
             return self._services
 
@@ -110,33 +216,64 @@ class DeviceConnection:
             await main_conn.connect()
 
             # Send services request message
-            from .messages import ServicesRequestMessage
             request = ServicesRequestMessage(token=self.token)
             await main_conn.send_message(request.serialize())
 
             # Collect service announcements until we get a reference message
-            async for message_data in main_conn.messages():
-                try:
-                    # Try to parse as service announcement
-                    from .messages import ServiceAnnouncementMessage
-                    service_msg = ServiceAnnouncementMessage.deserialize(message_data)
-                    services.append(Service(service_msg.service, service_msg.port))
-                    continue
-                except Exception:
-                    pass
+            message_count = 0
 
-                try:
-                    # Try to parse as reference message (signals end of services)
-                    from .messages import ReferenceMessage
-                    ReferenceMessage.deserialize(message_data)
-                    break  # End of services list
-                except Exception:
-                    pass
+            async def collect_services():
+                nonlocal message_count
+                async for message_data in main_conn.messages():
+                    message_count += 1
+
+                    # Safety check to prevent infinite loop
+                    if message_count > max_messages:
+                        logger.warning(
+                            "Reached maximum message limit (%d) during service discovery",
+                            max_messages,
+                        )
+                        break
+
+                    with suppress(Exception):
+                        # Try to parse as service announcement
+                        service_msg = ServiceAnnouncementMessage.deserialize(
+                            message_data
+                        )
+                        services.append(Service(service_msg.service, service_msg.port))
+                        logger.debug(
+                            "Discovered service: %s:%d",
+                            service_msg.service,
+                            service_msg.port,
+                        )
+                        continue
+
+                    with suppress(Exception):
+                        # Try to parse as reference message (signals end of services)
+                        ReferenceMessage.deserialize(message_data)
+                        logger.debug(
+                            "Received reference message, ending service discovery"
+                        )
+                        break  # End of services list
+
+            # Apply timeout to service collection
+            try:
+                await asyncio.wait_for(collect_services(), timeout=timeout)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Service discovery timed out after %gs, discovered %d services",
+                    timeout,
+                    len(services),
+                )
+                # Don't raise - return what we found
 
         finally:
             await main_conn.disconnect()
 
         self._services = services
+        logger.info(
+            "Discovered %d services: %s", len(services), [s.name for s in services]
+        )
         return self._services
 
     @asynccontextmanager
@@ -177,7 +314,9 @@ class DeviceConnection:
         if not file_service:
             raise ValueError("FileTransfer service not available")
 
-        file_transfer = FileTransferConnection(self.device.ip, file_service.port, self.token)
+        file_transfer = FileTransferConnection(
+            self.device.ip, file_service.port, self.token
+        )
         try:
             await file_transfer.connect()
             yield file_transfer
@@ -205,22 +344,20 @@ class StateMap:
 
         # Send service announcement message (required by protocol)
         # This announces our local port to the device, as observed in commercial DJ software
-        from .messages import ServiceAnnouncementMessage
+
         announcement = ServiceAnnouncementMessage(
-            token=self.token,
-            service="StateMap",
-            port=self._connection.local_port
+            token=self.token, service="StateMap", port=self._connection.local_port
         )
         await self._connection.send_message(announcement.serialize())
 
-        logger.info(f"Connected to StateMap at {self.host}:{self.port}")
+        logger.info("Connected to StateMap at %s:%s", self.host, self.port)
 
     async def disconnect(self) -> None:
         """Disconnect from StateMap service."""
         if self._connection:
             await self._connection.disconnect()
             self._connection = None
-        logger.info(f"Disconnected from StateMap at {self.host}:{self.port}")
+        logger.info("Disconnected from StateMap at %s:%s", self.host, self.port)
 
     async def subscribe(self, state_name: str, interval: int = 0) -> None:
         """Subscribe to state updates."""
@@ -234,7 +371,7 @@ class StateMap:
         await self._connection.send_message(msg.serialize())
 
         self._subscriptions.add(state_name)
-        logger.debug(f"Subscribed to state: {state_name}")
+        logger.debug("Subscribed to state: %s", state_name)
 
     async def states(self) -> AsyncIterator[State]:
         """Stream state updates."""
@@ -254,8 +391,64 @@ class StateMap:
                 yield State(name=msg.name, value=value)
 
             except Exception as e:
-                logger.error(f"Error parsing state message: {e}")
+                logger.error("Error parsing state message: %s", e)
                 continue
+
+    def categorize_state(self, state_name: str) -> StateCategory:
+        """Categorize a state by its name."""
+        if state_name.startswith("Subscribe_"):
+            return StateCategory.SUBSCRIPTION
+        elif "ChannelAssignment" in state_name:
+            return StateCategory.CHANNEL_ASSIGNMENT
+        elif any(
+            keyword in state_name
+            for keyword in [
+                "/Track/CurrentBPM",
+                "/Track/Title",
+                "/Track/Artist",
+                "/Track/Album",
+                "/Track/TrackName",
+                "/Track/ArtistName",
+            ]
+        ):
+            return StateCategory.TRACK_INFO
+        elif any(
+            keyword in state_name
+            for keyword in [
+                "/PlayState",
+                "/DeckIsMaster",
+                "/LoopEnableState",
+                "/LayerB",
+                "/MasterStatus",
+            ]
+        ):
+            return StateCategory.DECK_STATE
+        else:
+            return StateCategory.OTHER
+
+    def extract_deck_info(self, state_name: str) -> tuple[str | None, str]:
+        """Extract deck information from state name.
+
+        Returns:
+            tuple: (deck_name, base_name) where deck_name is like "Deck1" or None
+        """
+        # Look for DeckN pattern (where N is any number)
+        deck_match = re.search(r"Deck(\d+)", state_name)
+        if not deck_match:
+            return None, state_name.split("/")[-1] if "/" in state_name else state_name
+        deck_name = f"Deck{deck_match.group(1)}"
+        return deck_name, state_name.split("/")[-1]
+
+    def parse_state_value(self, json_data: str) -> any:
+        """Parse JSON state value with fallback handling."""
+        try:
+            return json.loads(json_data)
+        except json.JSONDecodeError:
+            return json_data
+
+    def format_interval(self, interval: int) -> str:
+        """Format an interval value for display."""
+        return format_interval(interval)
 
 
 class BeatInfoStream:
@@ -275,7 +468,7 @@ class BeatInfoStream:
 
         self._connection = StageLinqConnection(self.host, self.port)
         await self._connection.connect()
-        logger.info(f"Connected to BeatInfo at {self.host}:{self.port}")
+        logger.info("Connected to BeatInfo at %s:%s", self.host, self.port)
 
     async def disconnect(self) -> None:
         """Disconnect from BeatInfo service."""
@@ -285,7 +478,7 @@ class BeatInfoStream:
         if self._connection:
             await self._connection.disconnect()
             self._connection = None
-        logger.info(f"Disconnected from BeatInfo at {self.host}:{self.port}")
+        logger.info("Disconnected from BeatInfo at %s:%s", self.host, self.port)
 
     async def start_stream(self) -> None:
         """Start beat info streaming."""
@@ -303,6 +496,15 @@ class BeatInfoStream:
 
     async def stop_stream(self) -> None:
         """Stop beat info streaming."""
+        if not self._connection:
+            raise RuntimeError("Not connected")
+
+        if not self._streaming:
+            return
+
+        msg = BeatInfoStopStreamMessage()
+        await self._connection.send_message(msg.serialize())
+
         self._streaming = False
         logger.debug("Stopped beat info streaming")
 
@@ -322,13 +524,11 @@ class BeatInfoStream:
                 msg = BeatEmitMessage.deserialize(message_data)
 
                 yield BeatInfo(
-                    clock=msg.clock,
-                    players=msg.players,
-                    timelines=msg.timelines
+                    clock=msg.clock, players=msg.players, timelines=msg.timelines
                 )
 
             except Exception as e:
-                logger.error(f"Error parsing beat message: {e}")
+                logger.error("Error parsing beat message: %s", e)
                 continue
 
 
@@ -343,20 +543,22 @@ class AsyncDevice(Device):
     @asynccontextmanager
     async def state_map(self, token: Token) -> AsyncIterator[StateMap]:
         """Direct state map connection."""
-        async with self.connect(token) as conn:
+        async with DeviceConnection(self, token) as conn:
             async with conn.state_map() as state_map:
                 yield state_map
 
     @asynccontextmanager
     async def beat_info(self, token: Token) -> AsyncIterator[BeatInfoStream]:
         """Direct beat info connection."""
-        async with self.connect(token) as conn:
+        async with DeviceConnection(self, token) as conn:
             async with conn.beat_info() as beat_info:
                 yield beat_info
 
     @asynccontextmanager
-    async def file_transfer(self, token: Token) -> AsyncIterator[FileTransferConnection]:
+    async def file_transfer(
+        self, token: Token
+    ) -> AsyncIterator[FileTransferConnection]:
         """Direct file transfer connection."""
-        async with self.connect(token) as conn:
+        async with DeviceConnection(self, token) as conn:
             async with conn.file_transfer() as file_transfer:
                 yield file_transfer

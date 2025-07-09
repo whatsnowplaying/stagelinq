@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import io
 import logging
-import secrets
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from enum import Enum
-from typing import AsyncIterator
 
 import netifaces
 
-from .messages import DiscoveryMessage, Token, DISCOVERER_HOWDY, DISCOVERER_EXIT
+from .messages import DISCOVERER_EXIT, DISCOVERER_HOWDY, DiscoveryMessage, Token
 from .protocol import StageLinqProtocol
 
 logger = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class DeviceState(Enum):
     """Device state enumeration."""
+
     PRESENT = "present"
     LEAVING = "leaving"
 
@@ -27,6 +28,7 @@ class DeviceState(Enum):
 @dataclass
 class Device:
     """Represents a StageLinq device."""
+
     ip: str
     name: str
     software_name: str
@@ -57,16 +59,22 @@ class Device:
         if not isinstance(other, Device):
             return False
         return (
-            self.token == other.token and
-            self.name == other.name and
-            self.software_name == other.software_name and
-            self.software_version == other.software_version
+            self.token == other.token
+            and self.name == other.name
+            and self.software_name == other.software_name
+            and self.software_version == other.software_version
         )
 
     @classmethod
-    def from_discovery_message(cls, addr: tuple[str, int], msg: DiscoveryMessage) -> Device:
+    def from_discovery_message(
+        cls, addr: tuple[str, int], msg: DiscoveryMessage
+    ) -> Device:
         """Create device from discovery message."""
-        state = DeviceState.PRESENT if msg.action == DISCOVERER_HOWDY else DeviceState.LEAVING
+        state = (
+            DeviceState.PRESENT
+            if msg.action == DISCOVERER_HOWDY
+            else DeviceState.LEAVING
+        )
         return cls(
             ip=addr[0],
             name=msg.source,
@@ -74,13 +82,14 @@ class Device:
             software_version=msg.software_version,
             port=msg.port,
             token=msg.token,
-            state=state
+            state=state,
         )
 
 
 @dataclass
 class DiscoveryConfig:
     """Configuration for device discovery."""
+
     name: str = "Python StageLinq"
     software_name: str = "python-stagelinq"
     software_version: str = "0.1.0"
@@ -97,12 +106,10 @@ class DiscoveryConfig:
 
 class StageLinqError(Exception):
     """Base exception for StageLinq errors."""
-    pass
 
 
 class DiscoveryError(StageLinqError):
     """Exception raised during device discovery."""
-    pass
 
 
 class StageLinqDiscovery:
@@ -132,21 +139,18 @@ class StageLinqDiscovery:
         loop = asyncio.get_event_loop()
         self._transport, self._protocol = await loop.create_datagram_endpoint(
             lambda: StageLinqProtocol(self._on_message_received),
-            local_addr=('', self.config.port),
-            reuse_port=True
+            local_addr=("0.0.0.0", self.config.port),
+            reuse_port=True,
         )
 
-        logger.info(f"Started StageLinq discovery on port {self.config.port}")
+        logger.info("Started StageLinq discovery on port %s", self.config.port)
 
     async def stop(self) -> None:
         """Stop discovery service."""
         if self._announce_task:
             self._announce_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._announce_task
-            except asyncio.CancelledError:
-                pass
-
         if self._transport:
             # Send leaving announcement
             await self._announce(DISCOVERER_EXIT)
@@ -188,10 +192,9 @@ class StageLinqDiscovery:
             action=action,
             software_name=self.config.software_name,
             software_version=self.config.software_version,
-            port=0  # We don't provide services in basic discovery
+            port=0,  # We don't provide services in basic discovery
         )
 
-        import io
         writer = io.BytesIO()
         msg.write_to(writer)
         data = writer.getvalue()
@@ -202,7 +205,7 @@ class StageLinqDiscovery:
 
     def _get_broadcast_addresses(self) -> list[str]:
         """Get broadcast addresses for all network interfaces."""
-        addresses = ['255.255.255.255']  # General broadcast
+        addresses = ["255.255.255.255"]  # General broadcast
 
         for interface in netifaces.interfaces():
             try:
@@ -210,9 +213,11 @@ class StageLinqDiscovery:
                 # Include both IPv4 and IPv6 addresses like Go code does
                 for family in [netifaces.AF_INET, netifaces.AF_INET6]:
                     if family in addrs:
-                        for addr_info in addrs[family]:
-                            if 'broadcast' in addr_info:
-                                addresses.append(addr_info['broadcast'])
+                        addresses.extend(
+                            addr_info["broadcast"]
+                            for addr_info in addrs[family]
+                            if "broadcast" in addr_info
+                        )
             except Exception:
                 continue
 
@@ -221,7 +226,6 @@ class StageLinqDiscovery:
     def _on_message_received(self, data: bytes, addr: tuple[str, int]) -> None:
         """Handle received discovery message."""
         try:
-            import io
             reader = io.BytesIO(data)
             msg = DiscoveryMessage(Token())
             msg.read_from(reader)
@@ -236,15 +240,17 @@ class StageLinqDiscovery:
 
             if device.state == DeviceState.LEAVING:
                 self._discovered_devices.pop(device_id, None)
-                logger.info(f"Device leaving: {device}")
+                logger.info("Device leaving: %s", device)
             else:
                 self._discovered_devices[device_id] = device
-                logger.info(f"Device discovered: {device}")
+                logger.info("Device discovered: %s", device)
 
         except Exception as e:
-            logger.warning(f"Failed to parse discovery message from {addr}: {e}")
+            logger.warning("Failed to parse discovery message from %s: %s", addr, e)
 
-    async def discover_devices(self, timeout: float | None = None) -> AsyncIterator[Device]:
+    async def discover_devices(
+        self, timeout: float | None = None
+    ) -> AsyncIterator[Device]:
         """Discover devices with async iterator."""
         if timeout is None:
             timeout = self.config.discovery_timeout
@@ -280,8 +286,10 @@ class StageLinqDiscovery:
         return self._discovered_devices.copy()
 
 
-@asynccontextmanager
-async def discover_stagelinq_devices(config: DiscoveryConfig | None = None) -> AsyncIterator[StageLinqDiscovery]:
+@contextlib.asynccontextmanager
+async def discover_stagelinq_devices(
+    config: DiscoveryConfig | None = None,
+) -> AsyncIterator[StageLinqDiscovery]:
     """Context manager for StageLinq device discovery."""
     discovery = StageLinqDiscovery(config)
     try:

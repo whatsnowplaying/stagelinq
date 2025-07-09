@@ -2,49 +2,45 @@
 
 This library implements Denon's StageLinq protocol, allowing Python applications
 to communicate with DJ equipment like Denon Prime series devices.
+
+This implementation uses modern async/await patterns for all I/O operations.
 """
 
 from __future__ import annotations
 
-from .beat_info import BeatInfoConnection
-from .connection import MainConnection, Service
-from .discovery import Device, DeviceState
-from .file_transfer import FileTransferConnection, FileInfo
-from .listener import Listener, ListenerConfiguration
-from .messages import PlayerInfo, Token
-from .state_map import State, StateMapConnection
-from .value_names import EngineDeck1, EngineDeck2, EngineDeck3, EngineDeck4
-
-# Re-export exceptions for convenience
-from .listener import (
-    InvalidDiscovererActionError,
-    InvalidMessageError,
-    StageLinqError,
-    TooShortDiscoveryMessageError,
+from .device import DeviceConnection, DeviceRegistry, StateCategory
+from .discovery import Device, DeviceState, DiscoveryConfig, discover_stagelinq_devices
+from .file_transfer import FileInfo, FileTransferConnection
+from .messages import (
+    NO_UPDATES_INTERVAL,
+    BeatInfoStartStreamMessage,
+    BeatInfoStopStreamMessage,
+    PlayerInfo,
+    Token,
+    format_interval,
+    is_no_updates_interval,
+    parse_beat_message,
 )
+from .value_names import DeckValueNames
 
 __version__ = "0.1.0"
 __all__ = [
     "Device",
     "DeviceState",
-    "Listener",
-    "ListenerConfiguration",
-    "MainConnection",
-    "Service",
+    "DeviceConnection",
+    "DeviceRegistry",
+    "StateCategory",
+    "discover_stagelinq_devices",
+    "DiscoveryConfig",
     "Token",
-    "StateMapConnection",
-    "State",
-    "BeatInfoConnection",
     "PlayerInfo",
+    "BeatInfoStartStreamMessage",
+    "BeatInfoStopStreamMessage",
     "FileTransferConnection",
     "FileInfo",
-    "EngineDeck1",
-    "EngineDeck2",
-    "EngineDeck3",
-    "EngineDeck4",
-    # Exceptions
-    "StageLinqError",
-    "TooShortDiscoveryMessageError",
-    "InvalidMessageError",
-    "InvalidDiscovererActionError",
+    "DeckValueNames",
+    "NO_UPDATES_INTERVAL",
+    "format_interval",
+    "is_no_updates_interval",
+    "parse_beat_message",
 ]

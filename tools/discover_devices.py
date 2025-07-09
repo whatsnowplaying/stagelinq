@@ -4,15 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
-import time
 from typing import Any
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import stagelinq
+from stagelinq.discovery import DiscoveryConfig, discover_stagelinq_devices
+from stagelinq.messages import Token
+from stagelinq.value_names import DeckValueNames
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -25,161 +24,134 @@ def setup_logging(level: str = "INFO") -> None:
 
 def get_state_names() -> list[str]:
     """Get list of state names to monitor."""
+    deck1 = DeckValueNames(1)
+    deck2 = DeckValueNames(2)
+
     return [
-        stagelinq.EngineDeck1.play(),
-        stagelinq.EngineDeck1.play_state(),
-        stagelinq.EngineDeck1.play_state_path(),
-        stagelinq.EngineDeck1.track_artist_name(),
-        stagelinq.EngineDeck1.track_track_network_path(),
-        stagelinq.EngineDeck1.track_song_loaded(),
-        stagelinq.EngineDeck1.track_song_name(),
-        stagelinq.EngineDeck1.track_track_data(),
-        stagelinq.EngineDeck1.track_track_name(),
-        stagelinq.EngineDeck2.play(),
-        stagelinq.EngineDeck2.play_state(),
-        stagelinq.EngineDeck2.play_state_path(),
-        stagelinq.EngineDeck2.track_artist_name(),
-        stagelinq.EngineDeck2.track_track_network_path(),
-        stagelinq.EngineDeck2.track_song_loaded(),
-        stagelinq.EngineDeck2.track_song_name(),
-        stagelinq.EngineDeck2.track_track_data(),
-        stagelinq.EngineDeck2.track_track_name(),
+        deck1.play(),
+        deck1.play_state(),
+        deck1.track_artist_name(),
+        deck1.track_song_name(),
+        deck1.track_current_bpm(),
+        deck2.play(),
+        deck2.play_state(),
+        deck2.track_artist_name(),
+        deck2.track_song_name(),
+        deck2.track_current_bpm(),
     ]
 
 
-def collect_device_states(
-    device: stagelinq.Device,
-    token: stagelinq.Token,
-    state_names: list[str],
-    timeout: float = 2.0
+async def collect_device_states(
+    device: Any, state_names: list[str], timeout: float = 2.0
 ) -> dict[str, Any]:
     """Collect state information from a device."""
     try:
-        with device.connect(token) as main_conn:
+        # Use a real SC6000 token
+        client_token = Token(
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x05\x95\x04\x14\x1c"
+        )
+
+        connection = device.connect(client_token)
+        async with connection:
             logging.info("  Requesting device services...")
-            services = main_conn.request_services()
+            services = await connection.discover_services()
 
             for service in services:
                 logging.info(f"  Service: {service.name} on port {service.port}")
 
-                # Connect to StateMap service
-                if service.name == "StateMap":
-                    try:
-                        state_conn = device.dial(service.port)
-                        with stagelinq.StateMapConnection(state_conn, token) as state_map:
-                            # Subscribe to state values
-                            for state_name in state_names:
-                                state_map.subscribe(state_name)
+            # Connect to StateMap service
+            async with connection.state_map() as state_map:
+                logging.info("  Connected to StateMap service")
 
-                            # Collect states
-                            collected_states: dict[str, Any] = {}
-                            timeout_time = time.time() + timeout
+                # Subscribe to state values
+                for state_name in state_names:
+                    await state_map.subscribe(state_name, 100)  # 100ms interval
 
-                            while time.time() < timeout_time:
-                                state = state_map.get_state(timeout=0.1)
-                                if state:
-                                    collected_states[state.name] = state.value
-                                    logging.info(f"    {state.name} = {state.value}")
+                # Collect states with timeout
+                collected_states: dict[str, Any] = {}
 
-                                    # Check if we have all states
-                                    if len(collected_states) >= len(state_names):
-                                        break
+                async def collect_with_timeout():
+                    async for state in state_map.states():
+                        collected_states[state.name] = state.value
+                        logging.info(f"    {state.name} = {state.value}")
 
-                            return collected_states
+                        # Check if we have enough states
+                        if len(collected_states) >= len(state_names):
+                            break
 
-                    except Exception as e:
-                        logging.error(f"  Error connecting to StateMap: {e}")
+                try:
+                    await asyncio.wait_for(collect_with_timeout(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    logging.info(
+                        f"  Timeout after {timeout}s, collected {len(collected_states)} states"
+                    )
+
+                return collected_states
 
     except Exception as e:
         logging.error(f"  Error connecting to device: {e}")
+        return {}
 
-    return {}
 
-
-def discover_devices(config: stagelinq.ListenerConfiguration, timeout: float) -> list[stagelinq.Device]:
+async def discover_devices(config: DiscoveryConfig, timeout: float) -> list[Any]:
     """Discover StageLinq devices on the network."""
-    found_devices: list[stagelinq.Device] = []
+    found_devices: list[Any] = []
 
-    with stagelinq.Listener(config) as listener:
-        listener.announce_every(1.0)
+    logging.info(f"Listening for devices for {timeout} seconds...")
 
-        logging.info(f"Listening for devices for {timeout} seconds...")
+    async with discover_stagelinq_devices(config) as discovery:
+        await discovery.start_announcing()
 
-        start_time = time.time()
+        # Wait for device discovery
+        await asyncio.sleep(timeout)
 
-        while time.time() - start_time < timeout:
-            try:
-                device, device_state = listener.discover(timeout=1.0)
+        devices = await discovery.get_devices()
 
-                if device is None:
-                    continue
-
-                # Skip devices that are leaving
-                if device_state != stagelinq.DeviceState.PRESENT:
-                    continue
-
-                # Check if we already found this device
-                if any(d.is_equal(device) for d in found_devices):
-                    continue
-
-                found_devices.append(device)
-
-                logging.info(
-                    f"Found device: {device.ip} - {device.name} "
-                    f"({device.software_name} {device.software_version})"
-                )
-
-            except stagelinq.TooShortDiscoveryMessageError:
-                logging.warning("Received too short discovery message")
-                continue
-            except stagelinq.InvalidMessageError as e:
-                logging.warning(f"Invalid message received: {e}")
-                continue
-            except stagelinq.InvalidDiscovererActionError as e:
-                logging.warning(f"Invalid discoverer action: {e}")
-                continue
-            except Exception as e:
-                logging.error(f"Unexpected error: {e}")
-                continue
+        for device in devices:
+            logging.info(
+                f"Found device: {device.ip} - {device.name} "
+                f"({device.software_name} {device.software_version})"
+            )
+            found_devices.append(device)
 
     return found_devices
 
 
-def main() -> None:
+async def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Discover StageLinq devices")
     parser.add_argument(
         "--timeout",
         type=float,
         default=5.0,
-        help="Discovery timeout in seconds (default: 5.0)"
+        help="Discovery timeout in seconds (default: 5.0)",
     )
     parser.add_argument(
         "--output",
         choices=["text", "json"],
         default="text",
-        help="Output format (default: text)"
+        help="Output format (default: text)",
     )
     parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Log level (default: INFO)"
+        help="Log level (default: INFO)",
     )
 
     args = parser.parse_args()
     setup_logging(args.log_level)
 
-    # Create listener configuration
-    config = stagelinq.ListenerConfiguration(
+    # Create discovery configuration
+    config = DiscoveryConfig(
         name="Python StageLinq Example",
         software_name="python-stagelinq",
         software_version="0.1.0",
-        discovery_timeout=args.timeout
+        discovery_timeout=args.timeout,
     )
 
     # Discover devices
-    devices = discover_devices(config, args.timeout)
+    devices = await discover_devices(config, args.timeout)
 
     if not devices:
         logging.info("No devices found")
@@ -188,23 +160,27 @@ def main() -> None:
     # Collect state information from each device
     state_names = get_state_names()
 
-    with stagelinq.Listener(config) as listener:
-        for device in devices:
-            states = collect_device_states(device, listener.token, state_names)
+    for device in devices:
+        states = await collect_device_states(device, state_names)
 
-            if args.output == "json":
-                print(json.dumps({
-                    "device": {
-                        "ip": device.ip,
-                        "name": device.name,
-                        "software_name": device.software_name,
-                        "software_version": device.software_version
+        if args.output == "json":
+            print(
+                json.dumps(
+                    {
+                        "device": {
+                            "ip": device.ip,
+                            "name": device.name,
+                            "software_name": device.software_name,
+                            "software_version": device.software_version,
+                        },
+                        "states": states,
                     },
-                    "states": states
-                }, indent=2))
+                    indent=2,
+                )
+            )
 
     logging.info(f"Discovery complete. Found {len(devices)} devices.")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

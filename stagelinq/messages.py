@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import secrets
 import struct
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, BinaryIO, Type, TypeVar, Union
+from typing import BinaryIO, TypeVar
 
-
-T = TypeVar('T', bound='Message')
+T = TypeVar("T", bound="Message")
 
 
 class Token:
@@ -19,18 +19,16 @@ class Token:
     def __init__(self, data: bytes | None = None) -> None:
         if data is None:
             self.data = secrets.token_bytes(16)
-        else:
-            if len(data) != 16:
-                raise ValueError("Token must be exactly 16 bytes")
+        elif len(data) == 16:
             self.data = data
+        else:
+            raise ValueError("Token must be exactly 16 bytes")
 
     def __bytes__(self) -> bytes:
         return self.data
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Token):
-            return False
-        return self.data == other.data
+        return self.data == other.data if isinstance(other, Token) else False
 
     def __str__(self) -> str:
         return self.data.hex()
@@ -43,62 +41,62 @@ class MessageSerializer:
     """Pythonic message serializer that eliminates manual struct operations."""
 
     def __init__(self):
-        self.endian = '>'  # Network byte order
+        self.endian = ">"  # Network byte order
 
     def write_uint32(self, writer: BinaryIO, value: int) -> None:
         """Write a 32-bit unsigned integer."""
-        writer.write(struct.pack(f'{self.endian}I', value))
+        writer.write(struct.pack(f"{self.endian}I", value))
 
     def read_uint32(self, reader: BinaryIO) -> int:
         """Read a 32-bit unsigned integer."""
         data = reader.read(4)
         if len(data) != 4:
             raise EOFError("Failed to read uint32")
-        return struct.unpack(f'{self.endian}I', data)[0]
+        return struct.unpack(f"{self.endian}I", data)[0]
 
     def write_uint16(self, writer: BinaryIO, value: int) -> None:
         """Write a 16-bit unsigned integer."""
-        writer.write(struct.pack(f'{self.endian}H', value))
+        writer.write(struct.pack(f"{self.endian}H", value))
 
     def read_uint16(self, reader: BinaryIO) -> int:
         """Read a 16-bit unsigned integer."""
         data = reader.read(2)
         if len(data) != 2:
             raise EOFError("Failed to read uint16")
-        return struct.unpack(f'{self.endian}H', data)[0]
+        return struct.unpack(f"{self.endian}H", data)[0]
 
     def write_int64(self, writer: BinaryIO, value: int) -> None:
         """Write a 64-bit signed integer."""
-        writer.write(struct.pack(f'{self.endian}q', value))
+        writer.write(struct.pack(f"{self.endian}q", value))
 
     def read_int64(self, reader: BinaryIO) -> int:
         """Read a 64-bit signed integer."""
         data = reader.read(8)
         if len(data) != 8:
             raise EOFError("Failed to read int64")
-        return struct.unpack(f'{self.endian}q', data)[0]
+        return struct.unpack(f"{self.endian}q", data)[0]
 
     def write_uint64(self, writer: BinaryIO, value: int) -> None:
         """Write a 64-bit unsigned integer."""
-        writer.write(struct.pack(f'{self.endian}Q', value))
+        writer.write(struct.pack(f"{self.endian}Q", value))
 
     def read_uint64(self, reader: BinaryIO) -> int:
         """Read a 64-bit unsigned integer."""
         data = reader.read(8)
         if len(data) != 8:
             raise EOFError("Failed to read uint64")
-        return struct.unpack(f'{self.endian}Q', data)[0]
+        return struct.unpack(f"{self.endian}Q", data)[0]
 
     def write_double(self, writer: BinaryIO, value: float) -> None:
         """Write a 64-bit double."""
-        writer.write(struct.pack(f'{self.endian}d', value))
+        writer.write(struct.pack(f"{self.endian}d", value))
 
     def read_double(self, reader: BinaryIO) -> float:
         """Read a 64-bit double."""
         data = reader.read(8)
         if len(data) != 8:
             raise EOFError("Failed to read double")
-        return struct.unpack(f'{self.endian}d', data)[0]
+        return struct.unpack(f"{self.endian}d", data)[0]
 
     def write_token(self, writer: BinaryIO, token: Token) -> None:
         """Write a 16-byte token."""
@@ -117,21 +115,48 @@ class MessageSerializer:
             self.write_uint32(writer, 0)
             return
 
-        encoded = text.encode('utf-16be')
+        encoded = text.encode("utf-16be")
         self.write_uint32(writer, len(encoded))
         writer.write(encoded)
 
-    def read_utf16_string(self, reader: BinaryIO) -> str:
-        """Read a UTF-16 string with length prefix."""
+    def read_utf16_string(self, reader: BinaryIO, max_length: int = 64 * 1024) -> str:
+        """Read a UTF-16 string with length prefix.
+
+        Args:
+            reader: Binary stream to read from
+            max_length: Maximum allowed string length in bytes (default: 64KB)
+
+        Returns:
+            Decoded UTF-16 string
+
+        Raises:
+            ValueError: If string length exceeds max_length
+            EOFError: If unable to read expected amount of data
+        """
         length = self.read_uint32(reader)
         if length == 0:
             return ""
 
+        # Validate string length to prevent memory exhaustion
+        if length > max_length:
+            raise ValueError(
+                f"String length {length} exceeds maximum allowed length {max_length}"
+            )
+
+        # Additional sanity check for reasonable string lengths
+        if length > 10 * 1024 * 1024:  # 10MB absolute limit
+            raise ValueError(f"String length {length} is unreasonably large")
+
         data = reader.read(length)
         if len(data) != length:
-            raise EOFError("Failed to read string data")
+            raise EOFError(
+                f"Failed to read string data: expected {length} bytes, got {len(data)}"
+            )
 
-        return data.decode('utf-16be')
+        try:
+            return data.decode("utf-16be")
+        except UnicodeDecodeError as e:
+            raise ValueError(f"Invalid UTF-16 string data: {e}") from e
 
 
 # Global serializer instance
@@ -144,12 +169,10 @@ class Message(ABC):
     @abstractmethod
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
-        pass
 
     @abstractmethod
     def write_to(self, writer: BinaryIO) -> None:
         """Write message to stream."""
-        pass
 
     def serialize(self) -> bytes:
         """Serialize message to bytes."""
@@ -158,7 +181,7 @@ class Message(ABC):
         return buffer.getvalue()
 
     @classmethod
-    def deserialize(cls: Type[T], data: bytes) -> T:
+    def deserialize(cls: type[T], data: bytes) -> T:
         """Deserialize bytes to message."""
         buffer = io.BytesIO(data)
         instance = cls()
@@ -175,6 +198,7 @@ DISCOVERY_MAGIC = b"airD"
 @dataclass
 class DiscoveryMessage(Message):
     """Message for device discovery on UDP port 51337."""
+
     token: Token
     source: str = ""
     action: str = ""
@@ -182,8 +206,15 @@ class DiscoveryMessage(Message):
     software_version: str = ""
     port: int = 0
 
-    def __init__(self, token: Token | None = None, source: str = "", action: str = "",
-                 software_name: str = "", software_version: str = "", port: int = 0):
+    def __init__(
+        self,
+        token: Token | None = None,
+        source: str = "",
+        action: str = "",
+        software_name: str = "",
+        software_version: str = "",
+        port: int = 0,
+    ):
         self.token = token or Token()
         self.source = source
         self.action = action
@@ -198,10 +229,19 @@ class DiscoveryMessage(Message):
             raise ValueError("Invalid discovery magic")
 
         self.token = serializer.read_token(reader)
-        self.source = serializer.read_utf16_string(reader)
-        self.action = serializer.read_utf16_string(reader)
-        self.software_name = serializer.read_utf16_string(reader)
-        self.software_version = serializer.read_utf16_string(reader)
+        # Use reasonable limits for discovery message fields
+        self.source = serializer.read_utf16_string(
+            reader, max_length=512
+        )  # Device name
+        self.action = serializer.read_utf16_string(
+            reader, max_length=128
+        )  # Action string
+        self.software_name = serializer.read_utf16_string(
+            reader, max_length=256
+        )  # Software name
+        self.software_version = serializer.read_utf16_string(
+            reader, max_length=128
+        )  # Version string
         self.port = serializer.read_uint16(reader)
 
     def write_to(self, writer: BinaryIO) -> None:
@@ -221,26 +261,36 @@ class TokenPrefixedMessage(Message):
     def __init__(self, token: Token | None = None):
         self.token = token or Token()
 
+    @property
+    @abstractmethod
+    def MESSAGE_ID(self) -> int:
+        """Message ID that must be implemented by subclasses."""
+
     def read_message_id(self, reader: BinaryIO) -> int:
         """Read and validate message ID."""
         message_id = serializer.read_uint32(reader)
-        if hasattr(self, 'MESSAGE_ID') and message_id != self.MESSAGE_ID:
-            raise ValueError(f"Invalid message ID: {message_id}")
+        if message_id != self.MESSAGE_ID:
+            raise ValueError(
+                f"Invalid message ID: expected {self.MESSAGE_ID:#x}, got {message_id:#x}"
+            )
         return message_id
 
     def write_message_id(self, writer: BinaryIO) -> None:
         """Write message ID."""
-        if hasattr(self, 'MESSAGE_ID'):
-            serializer.write_uint32(writer, self.MESSAGE_ID)
+        serializer.write_uint32(writer, self.MESSAGE_ID)
 
 
 @dataclass
 class ServiceAnnouncementMessage(TokenPrefixedMessage):
     """Message announcing a service on a specific port."""
+
     service: str = ""
     port: int = 0
 
-    MESSAGE_ID = 0x00000000
+    @property
+    def MESSAGE_ID(self) -> int:
+        """Service announcement message ID."""
+        return 0x00000000
 
     def __init__(self, token: Token | None = None, service: str = "", port: int = 0):
         super().__init__(token)
@@ -251,7 +301,9 @@ class ServiceAnnouncementMessage(TokenPrefixedMessage):
         """Read message from stream."""
         self.read_message_id(reader)
         self.token = serializer.read_token(reader)
-        self.service = serializer.read_utf16_string(reader)
+        self.service = serializer.read_utf16_string(
+            reader, max_length=256
+        )  # Service name
         self.port = serializer.read_uint16(reader)
 
     def write_to(self, writer: BinaryIO) -> None:
@@ -265,12 +317,21 @@ class ServiceAnnouncementMessage(TokenPrefixedMessage):
 @dataclass
 class ReferenceMessage(TokenPrefixedMessage):
     """Message containing reference information."""
+
     token2: Token = None
     reference: int = 0
 
-    MESSAGE_ID = 0x00000001
+    @property
+    def MESSAGE_ID(self) -> int:
+        """Reference message ID."""
+        return 0x00000001
 
-    def __init__(self, token: Token | None = None, token2: Token | None = None, reference: int = 0):
+    def __init__(
+        self,
+        token: Token | None = None,
+        token2: Token | None = None,
+        reference: int = 0,
+    ):
         super().__init__(token)
         self.token2 = token2 or Token()
         self.reference = reference
@@ -293,7 +354,10 @@ class ReferenceMessage(TokenPrefixedMessage):
 class ServicesRequestMessage(TokenPrefixedMessage):
     """Message requesting available services."""
 
-    MESSAGE_ID = 0x00000002
+    @property
+    def MESSAGE_ID(self) -> int:
+        """Services request message ID."""
+        return 0x00000002
 
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
@@ -314,18 +378,22 @@ BEAT_INFO_START_STREAM_MAGIC = b"\x00\x00\x00\x00"
 BEAT_INFO_STOP_STREAM_MAGIC = b"\x00\x00\x00\x01"
 BEAT_EMIT_MAGIC = b"\x00\x00\x00\x02"
 
+# Special protocol values
+NO_UPDATES_INTERVAL = 4294967295  # 0xFFFFFFFF - indicates no periodic updates
+
 
 @dataclass
 class StateSubscribeMessage(Message):
     """Message to subscribe to state updates."""
+
     name: str = ""
     interval: int = 0
 
-    MAGIC_ID = 0x000007d2
+    MAGIC_ID = 0x000007D2
 
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
-        length = serializer.read_uint32(reader)
+        _length = serializer.read_uint32(reader)
 
         magic = reader.read(4)
         if magic != SMAA_MAGIC:
@@ -335,7 +403,7 @@ class StateSubscribeMessage(Message):
         if magic_id != self.MAGIC_ID:
             raise ValueError(f"Invalid magic ID: {magic_id}")
 
-        self.name = serializer.read_utf16_string(reader)
+        self.name = serializer.read_utf16_string(reader, max_length=1024)  # State name
         self.interval = serializer.read_uint32(reader)
 
     def write_to(self, writer: BinaryIO) -> None:
@@ -356,6 +424,7 @@ class StateSubscribeMessage(Message):
 @dataclass
 class StateEmitMessage(Message):
     """Message containing state data."""
+
     name: str = ""
     json_data: str = ""
 
@@ -391,10 +460,14 @@ class StateEmitMessage(Message):
         if magic_id != self.MAGIC_ID:
             raise ValueError(f"Invalid magic ID: {magic_id}")
 
-        self.name = serializer.read_utf16_string(msg_reader)
+        self.name = serializer.read_utf16_string(
+            msg_reader, max_length=1024
+        )  # State name
 
         # Read JSON data - it's actually a UTF-16 string with length prefix
-        json_data_str = serializer.read_utf16_string(msg_reader)
+        json_data_str = serializer.read_utf16_string(
+            msg_reader, max_length=8192
+        )  # JSON data
         self.json_data = json_data_str
 
     def write_to(self, writer: BinaryIO) -> None:
@@ -415,6 +488,7 @@ class StateEmitMessage(Message):
 @dataclass
 class PlayerInfo:
     """Information about a player's beat state."""
+
     beat: float = 0.0
     total_beats: float = 0.0
     bpm: float = 0.0
@@ -429,7 +503,7 @@ class BeatInfoStartStreamMessage(Message):
 
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
-        length = serializer.read_uint32(reader)
+        _length = serializer.read_uint32(reader)
 
         magic = reader.read(4)
         if magic != BEAT_INFO_START_STREAM_MAGIC:
@@ -448,7 +522,7 @@ class BeatInfoStopStreamMessage(Message):
 
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
-        length = serializer.read_uint32(reader)
+        _length = serializer.read_uint32(reader)
 
         magic = reader.read(4)
         if magic != BEAT_INFO_STOP_STREAM_MAGIC:
@@ -461,18 +535,18 @@ class BeatInfoStopStreamMessage(Message):
         writer.write(BEAT_INFO_STOP_STREAM_MAGIC)
 
 
-@dataclass
 class BeatEmitMessage(Message):
     """Message containing beat timing information."""
-    clock: int = 0
-    players: list[PlayerInfo] = None
-    timelines: list[float] = None
 
-    def __init__(self, clock: int = 0, players: list[PlayerInfo] | None = None,
-                 timelines: list[float] | None = None):
-        self.clock = clock
-        self.players = players or []
-        self.timelines = timelines or []
+    def __init__(
+        self,
+        clock: int = 0,
+        players: list[PlayerInfo] | None = None,
+        timelines: list[float] | None = None,
+    ):
+        self.clock: int = clock
+        self.players: list[PlayerInfo] = players or []
+        self.timelines: list[float] = timelines or []
 
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
@@ -562,7 +636,7 @@ def create_discovery_message(
     action: str = DISCOVERER_HOWDY,
     software_name: str = "python-stagelinq",
     software_version: str = "0.1.0",
-    port: int = 51337
+    port: int = 51337,
 ) -> DiscoveryMessage:
     """Create a discovery message with sensible defaults."""
     return DiscoveryMessage(
@@ -571,14 +645,11 @@ def create_discovery_message(
         action=action,
         software_name=software_name,
         software_version=software_version,
-        port=port
+        port=port,
     )
 
 
-def create_state_subscribe(
-    name: str = "",
-    interval: int = 0
-) -> StateSubscribeMessage:
+def create_state_subscribe(name: str = "", interval: int = 0) -> StateSubscribeMessage:
     """Create a state subscription message."""
     return StateSubscribeMessage(name=name, interval=interval)
 
@@ -593,7 +664,54 @@ def create_beat_stop_stream() -> BeatInfoStopStreamMessage:
     return BeatInfoStopStreamMessage()
 
 
-def create_beat_emit(clock: int = 0, players: list[PlayerInfo] | None = None,
-                    timelines: list[float] | None = None) -> BeatEmitMessage:
+def create_beat_emit(
+    clock: int = 0,
+    players: list[PlayerInfo] | None = None,
+    timelines: list[float] | None = None,
+) -> BeatEmitMessage:
     """Create a beat emit message."""
     return BeatEmitMessage(clock=clock, players=players, timelines=timelines)
+
+
+# Utility functions for special protocol values
+def format_interval(interval: int) -> str:
+    """Format an interval value for display."""
+    if interval == NO_UPDATES_INTERVAL:
+        return "no-updates"
+    else:
+        return str(interval)
+
+
+def is_no_updates_interval(interval: int) -> bool:
+    """Check if an interval indicates no periodic updates."""
+    return interval == NO_UPDATES_INTERVAL
+
+
+def parse_beat_message(payload: bytes) -> Message | None:
+    """Parse a beat-related message from payload bytes.
+
+    Tries to parse the payload as different types of beat messages:
+    1. BeatInfoStartStreamMessage
+    2. BeatInfoStopStreamMessage
+    3. BeatEmitMessage
+
+    Returns:
+        The parsed message object, or None if parsing fails
+    """
+    if len(payload) < 8:  # Need at least length prefix + some data
+        return None
+
+    # Try BeatInfoStartStreamMessage
+    with contextlib.suppress(Exception):
+        return BeatInfoStartStreamMessage.deserialize(payload)
+
+    # Try BeatInfoStopStreamMessage
+    with contextlib.suppress(Exception):
+        return BeatInfoStopStreamMessage.deserialize(payload)
+
+    # Try BeatEmitMessage
+    with contextlib.suppress(Exception):
+        return BeatEmitMessage.deserialize(payload)
+
+    # No valid beat message found
+    return None

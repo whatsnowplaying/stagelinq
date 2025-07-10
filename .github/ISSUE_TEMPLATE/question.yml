@@ -1,0 +1,109 @@
+name: Question
+description: Ask a question about using python-stagelinq
+title: "[Question]: "
+labels: ["question", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your question! Please search existing issues first to see if your question has already been answered.
+
+  - type: input
+    id: contact
+    attributes:
+      label: Contact Details
+      description: How can we get in touch with you if we need more info?
+      placeholder: ex. email@example.com
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What area is your question about?
+      options:
+        - Getting Started
+        - Device Discovery
+        - State Monitoring
+        - Beat Information
+        - File Transfer
+        - Protocol Understanding
+        - Troubleshooting
+        - Best Practices
+        - Performance
+        - Integration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: Please be as specific as possible
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: What you're trying to accomplish
+      description: Describe your goal or use case
+      placeholder: |
+        I'm trying to build a DJ application that...
+        I want to monitor track changes in real-time...
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-tried
+    attributes:
+      label: What have you tried?
+      description: What approaches have you already attempted?
+    validations:
+      required: false
+
+  - type: textarea
+    id: code-sample
+    attributes:
+      label: Code Sample (if applicable)
+      description: If you have code you're working with, please share it
+      render: python
+    validations:
+      required: false
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      description: What version of python-stagelinq are you using?
+      options:
+        - 0.1.0
+        - main branch
+        - other (please specify in description)
+    validations:
+      required: false
+
+  - type: textarea
+    id: device-info
+    attributes:
+      label: DJ Equipment Information (if relevant)
+      description: If your question is about specific DJ equipment
+      placeholder: |
+        - Device model: SC6000
+        - Firmware version: 3.0.0
+        - Connection type: Ethernet/WiFi
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

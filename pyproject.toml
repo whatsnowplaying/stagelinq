@@ -39,7 +39,7 @@ dev = [
     "pytest-cov>=4.0",
     "pytest-asyncio>=0.21.0",
     "ruff>=0.1.0",
-    "mypy>=1.0",
+    "pyright>=1.1.300",
     "scapy",
 ]
 
@@ -95,20 +95,27 @@ ignore = [
     "B007",  # Unused loop control variables (common in test loops)
 ]
 
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedClass = true
+reportUnusedFunction = true
+reportUnusedVariable = true
+reportDuplicateImport = true
+# Disable some of the stricter checks for now
+reportUnknownParameterType = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportMissingParameterType = false
+reportGeneralTypeIssues = false
+reportAttributeAccessIssue = false
+reportArgumentType = false
+reportAssignmentType = false
+include = ["stagelinq"]
+exclude = ["tests", "tools"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

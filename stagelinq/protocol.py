@@ -36,7 +36,9 @@ class StageLinqProtocol(asyncio.DatagramProtocol):
     def error_received(self, exc: Exception) -> None:
         """Called when an error is received."""
         # Common network errors when mixing IPv4/IPv6 - log as debug
-        if "address family mismatched" in str(exc) or "Can't assign requested address" in str(exc):
+        if "address family mismatched" in str(
+            exc
+        ) or "Can't assign requested address" in str(exc):
             logger.debug("StageLinq protocol error (expected): %s", exc)
         else:
             logger.error("StageLinq protocol error: %s", exc)

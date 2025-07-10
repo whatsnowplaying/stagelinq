@@ -16,7 +16,7 @@ class TestDeviceRegistry:
         """Test DeviceRegistry creation."""
         registry = DeviceRegistry()
         assert len(registry) == 0
-        assert list(registry) == []
+        assert not list(registry)
 
     def test_add_device(self):
         """Test adding a device to the registry."""

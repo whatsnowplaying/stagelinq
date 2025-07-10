@@ -46,7 +46,7 @@ def test_service_announcement_message_from_tcp_data(tcp_packet_data):
     service_messages = tcp_packet_data["service_messages"]
 
     # Test parsing the first few service messages
-    for i, msg_data in enumerate(service_messages[:3]):
+    for msg_data in service_messages[:3]:
         packet_hex = msg_data["raw_data"]
         packet_bytes = binascii.unhexlify(packet_hex)
 
@@ -64,13 +64,9 @@ def test_state_map_service_message(tcp_packet_data):
     """Test StateMap service message specifically."""
     service_messages = tcp_packet_data["service_messages"]
 
-    # Find StateMap service message
-    state_map_msg = None
-    for msg in service_messages:
-        if msg["service"] == "StateMap":
-            state_map_msg = msg
-            break
-
+    state_map_msg = next(
+        (msg for msg in service_messages if msg["service"] == "StateMap"), None
+    )
     assert state_map_msg is not None, "StateMap service message not found"
 
     # Parse the message
@@ -87,13 +83,9 @@ def test_beat_info_service_message(tcp_packet_data):
     """Test BeatInfo service message specifically."""
     service_messages = tcp_packet_data["service_messages"]
 
-    # Find BeatInfo service message
-    beat_info_msg = None
-    for msg in service_messages:
-        if msg["service"] == "BeatInfo":
-            beat_info_msg = msg
-            break
-
+    beat_info_msg = next(
+        (msg for msg in service_messages if msg["service"] == "BeatInfo"), None
+    )
     assert beat_info_msg is not None, "BeatInfo service message not found"
 
     # Parse the message
@@ -164,10 +156,10 @@ def test_tcp_service_message_token_consistency(tcp_packet_data):
         token_groups[token_hex].append(message)
 
     # Should have at least one token group
-    assert len(token_groups) > 0
+    assert token_groups
 
     # Each token group should have multiple services
-    for token_hex, messages in token_groups.items():
+    for messages in token_groups.values():
         if len(messages) > 1:
             # All messages from same token should have same source
             first_token = messages[0].token

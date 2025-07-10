@@ -458,7 +458,7 @@ def test_discovery_message_handler_malformed_but_valid_length():
 
     # Test 1: Valid length but wrong magic bytes
     malformed_data = bytearray(48)
-    malformed_data[0:4] = b"BAD!"  # Wrong magic bytes instead of "airD"
+    malformed_data[:4] = b"BAD!"
     # Add a valid token (16 bytes)
     malformed_data[4:20] = b"test_token_12345"
 
@@ -472,7 +472,7 @@ def test_discovery_message_handler_malformed_but_valid_length():
 
     # Test 2: Correct magic but corrupted token (wrong length)
     malformed_data2 = bytearray(24)  # Too short for a complete message
-    malformed_data2[0:4] = b"airD"  # Correct magic
+    malformed_data2[:4] = b"airD"
     malformed_data2[4:8] = b"bad!"  # Corrupted/truncated token
 
     addr2 = ("192.168.1.72", 51337)

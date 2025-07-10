@@ -713,10 +713,7 @@ def create_beat_emit(
 # Utility functions for special protocol values
 def format_interval(interval: int) -> str:
     """Format an interval value for display."""
-    if interval == NO_UPDATES_INTERVAL:
-        return "no-updates"
-    else:
-        return str(interval)
+    return "no-updates" if interval == NO_UPDATES_INTERVAL else str(interval)
 
 
 def is_no_updates_interval(interval: int) -> bool:

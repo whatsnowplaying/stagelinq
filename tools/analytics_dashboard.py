@@ -331,11 +331,11 @@ class AnalyticsDashboard:
             if state.is_float_value():
                 deck.current_track.play_position = typed_value
 
-        # Update device info if available
-        if device_id in self.devices and not self.devices[device_id].device_name:
             # Try to extract device name from state paths
-            if "Engine" in state.name:
-                self.devices[device_id].device_name = "Denon Engine"
+        if "Engine" in state.name and (
+            device_id in self.devices and not self.devices[device_id].device_name
+        ):
+            self.devices[device_id].device_name = "Denon Engine"
 
     def _extract_deck_name(self, state_name: str) -> str | None:
         """Extract deck name from state path."""
@@ -443,13 +443,10 @@ class AnalyticsDashboard:
             return
 
         current_time = time.time()
-        sync_threshold = 0.1  # 100ms tolerance for sync
-
         # Get recent beats from all decks (last 5 seconds)
         recent_beats = {}
         for deck_key, beats in self.beat_history.items():
-            recent = [b for b in beats if current_time - b["timestamp"] < 5.0]
-            if recent:
+            if recent := [b for b in beats if current_time - b["timestamp"] < 5.0]:
                 recent_beats[deck_key] = recent
 
         # Analyze sync between playing decks
@@ -461,6 +458,8 @@ class AnalyticsDashboard:
                 "playing_decks": len(playing_decks),
                 "sync_pairs": [],
             }
+
+            sync_threshold = 0.1  # 100ms tolerance for sync
 
             # Compare each pair of playing decks
             for i, deck1_key in enumerate(playing_decks):

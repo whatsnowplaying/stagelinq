@@ -463,13 +463,7 @@ class PacketAnalyzer:
     def analyze_other_packets(self) -> None:
         """Analyze unrecognized packets with data payloads."""
 
-        # Track packets we've already processed
-        processed_packets = set()
-
-        # Add discovery packet timestamps
-        for msg in self.discovery_messages:
-            processed_packets.add(msg["timestamp"])
-
+        processed_packets = {msg["timestamp"] for msg in self.discovery_messages}
         # Add service packet timestamps
         for msg in self.service_messages:
             processed_packets.add(msg["timestamp"])
@@ -610,8 +604,7 @@ def main() -> None:
     if args.show:
         show_types = set(args.show.lower().split(","))
         valid_types = {"discovery", "services", "states", "beats", "other"}
-        invalid_types = show_types - valid_types
-        if invalid_types:
+        if invalid_types := show_types - valid_types:
             logger.error(
                 f"Invalid show types: {', '.join(invalid_types)}. Valid types: {', '.join(valid_types)}"
             )
@@ -643,19 +636,16 @@ def main() -> None:
     for packet in analyzer.packets:
         timestamp = float(packet.time)
 
-        # Skip packets we've already accounted for
-        is_accounted = False
-        for msg_list in [
-            analyzer.discovery_messages,
-            analyzer.service_messages,
-            analyzer.state_messages,
-            analyzer.beat_messages,
-            analyzer.other_messages,
-        ]:
-            if any(abs(msg["timestamp"] - timestamp) < 0.001 for msg in msg_list):
-                is_accounted = True
-                break
-
+        is_accounted = any(
+            any(abs(msg["timestamp"] - timestamp) < 0.001 for msg in msg_list)
+            for msg_list in [
+                analyzer.discovery_messages,
+                analyzer.service_messages,
+                analyzer.state_messages,
+                analyzer.beat_messages,
+                analyzer.other_messages,
+            ]
+        )
         if is_accounted:
             continue
 
@@ -664,19 +654,15 @@ def main() -> None:
             tcp = packet[scapy.TCP]
             payload = bytes(tcp.payload)
             if len(payload) < 8:
-                if len(payload) == 0:
+                if not payload:
                     tcp_control_packets += 1
                 else:
                     small_packets += 1
         elif packet.haslayer(scapy.UDP):
             udp = packet[scapy.UDP]
             payload = bytes(udp.payload)
-            if len(payload) < 8:
-                if udp.sport == 51337 or udp.dport == 51337:
-                    # Discovery packet that failed to parse
-                    pass
-                else:
-                    udp_control_packets += 1
+            if len(payload) < 8 and (udp.sport != 51337 and udp.dport != 51337):
+                udp_control_packets += 1
 
     # Print summary
     print("\nPacket Analysis Summary:")

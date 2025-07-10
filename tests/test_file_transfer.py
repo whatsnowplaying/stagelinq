@@ -39,10 +39,7 @@ class TestFileInfo:
     def test_file_info_creation(self):
         """Test FileInfo creation and properties."""
         file_info = FileInfo(
-            path="/test/path.mp3",
-            name="path.mp3",
-            size=12345,
-            is_directory=False
+            path="/test/path.mp3", name="path.mp3", size=12345, is_directory=False
         )
 
         assert file_info.path == "/test/path.mp3"
@@ -67,7 +64,7 @@ class TestFileSource:
         source = FileSource(
             name="Music (USB 1)",
             database_path="/USB1/Engine Library/Database2/m.db",
-            database_size=2048576
+            database_size=2048576,
         )
 
         assert source.name == "Music (USB 1)"
@@ -89,17 +86,19 @@ class TestDatabaseInfoResponse:
         response_data = bytearray(49)
         response_data[0] = 0x01  # File exists
         response_data[1] = 0x00  # Not directory
-        response_data[4:6] = b'\x77\x55'  # Permissions
+        response_data[4:6] = b"\x77\x55"  # Permissions
 
-        # Add sample metadata blocks (3 * 13 bytes)
-        metadata_start = 6
-        for i in range(3):
-            block_start = metadata_start + (i * 13)
-            response_data[block_start:block_start + 13] = b'\x00\x00\x00\x00\x00\x25\x89\xac\x02\x8c\x5f\xd0\x00'
+        # Add sample metadata blocks (35 bytes from offset 6 to 40)
+        # Block 1: bytes 6-18 (13 bytes)
+        response_data[6:19] = b"\x00\x00\x00\x00\x00\x25\x89\xac\x02\x8c\x5f\xd0\x00"
+        # Block 2: bytes 19-31 (13 bytes)
+        response_data[19:32] = b"\x00\x00\x00\x00\x00\x25\x89\xac\x02\x8c\x5f\xd0\x00"
+        # Partial block 3: bytes 32-40 (9 bytes only, since file size starts at 41)
+        response_data[32:41] = b"\x00\x00\x00\x00\x00\x25\x89\xac\x02"
 
         # File size in last 8 bytes
         file_size = 1234567
-        response_data[-8:] = file_size.to_bytes(8, byteorder='big')
+        response_data[-8:] = file_size.to_bytes(8, byteorder="big")
 
         parsed = DatabaseInfoResponse.parse(bytes(response_data))
 
@@ -107,17 +106,17 @@ class TestDatabaseInfoResponse:
         assert parsed.is_directory is False
         assert parsed.file_size == 1234567
         assert parsed.permissions == 0x7755
-        assert len(parsed.metadata_blocks) == 3
+        assert len(parsed.metadata_blocks) == 3  # 2 complete + 1 partial
 
     def test_parse_non_existing_file_response(self):
         """Test parsing DATABASE_INFO response for non-existing file."""
         response_data = bytearray(49)
         response_data[0] = 0x00  # File does not exist
         response_data[1] = 0x00  # Not directory
-        response_data[4:6] = b'\x00\x00'  # No permissions
+        response_data[4:6] = b"\x00\x00"  # No permissions
 
         # Zero file size
-        response_data[-8:] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+        response_data[-8:] = b"\x00\x00\x00\x00\x00\x00\x00\x00"
 
         parsed = DatabaseInfoResponse.parse(bytes(response_data))
 
@@ -131,7 +130,7 @@ class TestDatabaseInfoResponse:
         response_data = bytearray(49)
         response_data[0] = 0x01  # Exists
         response_data[1] = 0x01  # Is directory
-        response_data[4:6] = b'\x66\x44'  # Directory permissions
+        response_data[4:6] = b"\x66\x44"  # Directory permissions
 
         parsed = DatabaseInfoResponse.parse(bytes(response_data))
 
@@ -144,8 +143,8 @@ class TestDatabaseInfoResponse:
         original_data = bytearray(49)
         original_data[0] = 0x01
         original_data[1] = 0x00
-        original_data[4:6] = b'\x77\x55'
-        original_data[-8:] = (1024).to_bytes(8, byteorder='big')
+        original_data[4:6] = b"\x77\x55"
+        original_data[-8:] = (1024).to_bytes(8, byteorder="big")
 
         parsed = DatabaseInfoResponse.parse(bytes(original_data))
         serialized = parsed.to_bytes()
@@ -153,8 +152,8 @@ class TestDatabaseInfoResponse:
         assert len(serialized) == 49
         assert serialized[0] == 0x01  # Exists
         assert serialized[1] == 0x00  # Not directory
-        assert serialized[4:6] == b'\x77\x55'  # Permissions
-        assert int.from_bytes(serialized[-8:], byteorder='big') == 1024  # File size
+        assert serialized[4:6] == b"\x77\x55"  # Permissions
+        assert int.from_bytes(serialized[-8:], byteorder="big") == 1024  # File size
 
 
 class TestFileTransferRequestMessage:
@@ -182,13 +181,13 @@ class TestFileTransferRequestMessage:
 
         # Should contain request type, end marker, and final byte
         reader = io.BytesIO(data)
-        request_type = int.from_bytes(reader.read(4), byteorder='big')
-        end_marker = int.from_bytes(reader.read(4), byteorder='big')
+        request_type = int.from_bytes(reader.read(4), byteorder="big")
+        end_marker = int.from_bytes(reader.read(4), byteorder="big")
         final_byte = reader.read(1)
 
         assert request_type == FILE_TRANSFER_REQUEST_DIRECTORY_LIST
         assert end_marker == FILE_TRANSFER_REQUEST_END
-        assert final_byte == b'\x01'
+        assert final_byte == b"\x01"
 
 
 class TestFileTransferResponseMessage:
@@ -201,13 +200,13 @@ class TestFileTransferResponseMessage:
         # Create sample data with file announcement
         data = bytearray()
         data.extend(FLTX_MAGIC)  # Magic
-        data.extend((123).to_bytes(4, byteorder='big'))  # Request ID
-        data.extend((0x7D4).to_bytes(4, byteorder='big'))  # Message type
-        data.extend((1024).to_bytes(4, byteorder='big'))  # Size
-        data.extend("Test Source".encode('utf-16be'))  # Path
+        data.extend((123).to_bytes(4, byteorder="big"))  # Request ID
+        data.extend((0x7D4).to_bytes(4, byteorder="big"))  # Message type
+        data.extend((1024).to_bytes(4, byteorder="big"))  # Size
+        data.extend("Test Source".encode("utf-16be"))  # Path
 
         # Add trailer (last 3 bytes)
-        data.extend(b'\x01\x01\x00')  # first=True, last=True, directories=False
+        data.extend(b"\x01\x01\x00")  # first=True, last=True, directories=False
 
         reader = io.BytesIO(data)
         response.read_from(reader)
@@ -222,7 +221,7 @@ class TestFileTransferResponseMessage:
         response = FileTransferResponseMessage()
 
         # Short data without trailer
-        data = b'test'
+        data = b"test"
         reader = io.BytesIO(data)
         response.read_from(reader)
 
@@ -250,8 +249,8 @@ class TestFileTransferPauseMessage:
 
         reader = io.BytesIO(data)
         magic = reader.read(4)
-        transaction_id = int.from_bytes(reader.read(4), byteorder='big')
-        message_type = int.from_bytes(reader.read(4), byteorder='big')
+        transaction_id = int.from_bytes(reader.read(4), byteorder="big")
+        message_type = int.from_bytes(reader.read(4), byteorder="big")
 
         assert magic == FLTX_MAGIC
         assert transaction_id == 777
@@ -261,8 +260,8 @@ class TestFileTransferPauseMessage:
         """Test parsing pause message."""
         data = bytearray()
         data.extend(FLTX_MAGIC)
-        data.extend((888).to_bytes(4, byteorder='big'))  # Transaction ID
-        data.extend(FILE_TRANSFER_PAUSE_TRANSFER.to_bytes(4, byteorder='big'))
+        data.extend((888).to_bytes(4, byteorder="big"))  # Transaction ID
+        data.extend(FILE_TRANSFER_PAUSE_TRANSFER.to_bytes(4, byteorder="big"))
 
         reader = io.BytesIO(data)
         msg = FileTransferPauseMessage()
@@ -276,7 +275,7 @@ class TestFileTransferStatusQueryMessage:
 
     def test_create_status_query(self):
         """Test creating status query message."""
-        query_data = b'\x01\x00\x00\x00\x00\x00\x00\x00\x00'
+        query_data = b"\x01\x00\x00\x00\x00\x00\x00\x00\x00"
         msg = FileTransferStatusQueryMessage(transaction_id=999, query_data=query_data)
 
         assert msg.transaction_id == 999
@@ -292,8 +291,8 @@ class TestFileTransferStatusQueryMessage:
 
         reader = io.BytesIO(data)
         magic = reader.read(4)
-        transaction_id = int.from_bytes(reader.read(4), byteorder='big')
-        message_type = int.from_bytes(reader.read(4), byteorder='big')
+        transaction_id = int.from_bytes(reader.read(4), byteorder="big")
+        message_type = int.from_bytes(reader.read(4), byteorder="big")
 
         assert magic == FLTX_MAGIC
         assert transaction_id == 111
@@ -327,14 +326,14 @@ class TestFileTransferFrameEndMessage:
 
         reader = io.BytesIO(data)
         magic = reader.read(4)
-        transaction_id = int.from_bytes(reader.read(4), byteorder='big')
-        message_type = int.from_bytes(reader.read(4), byteorder='big')
+        transaction_id = int.from_bytes(reader.read(4), byteorder="big")
+        message_type = int.from_bytes(reader.read(4), byteorder="big")
         success_flag = reader.read(1)
 
         assert magic == FLTX_MAGIC
         assert transaction_id == 444
         assert message_type == FILE_TRANSFER_FRAME_END
-        assert success_flag == b'\x01'
+        assert success_flag == b"\x01"
 
 
 class TestFileTransferInvalidateMessage:
@@ -355,8 +354,8 @@ class TestFileTransferInvalidateMessage:
 
         reader = io.BytesIO(data)
         magic = reader.read(4)
-        transaction_id = int.from_bytes(reader.read(4), byteorder='big')
-        message_type = int.from_bytes(reader.read(4), byteorder='big')
+        transaction_id = int.from_bytes(reader.read(4), byteorder="big")
+        message_type = int.from_bytes(reader.read(4), byteorder="big")
 
         assert magic == FLTX_MAGIC
         assert transaction_id == 777
@@ -368,7 +367,7 @@ class TestFileTransferConnection:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.token = Token(b'\x00' * 16)
+        self.token = Token(b"\x00" * 16)
         self.connection = FileTransferConnection("192.168.1.100", 12345, self.token)
 
     def test_connection_creation(self):
@@ -389,7 +388,7 @@ class TestFileTransferConnection:
     @pytest.mark.asyncio
     async def test_connect_disconnect(self):
         """Test connection and disconnection."""
-        with patch('stagelinq.file_transfer.StageLinqConnection') as mock_conn_class:
+        with patch("stagelinq.file_transfer.StageLinqConnection") as mock_conn_class:
             mock_conn = AsyncMock()
             mock_conn_class.return_value = mock_conn
 
@@ -406,7 +405,7 @@ class TestFileTransferConnection:
     @pytest.mark.asyncio
     async def test_get_file_size(self):
         """Test getting file size using DATABASE_INFO request."""
-        with patch('stagelinq.file_transfer.StageLinqConnection') as mock_conn_class:
+        with patch("stagelinq.file_transfer.StageLinqConnection") as mock_conn_class:
             mock_conn = AsyncMock()
             mock_conn_class.return_value = mock_conn
             self.connection._connection = mock_conn
@@ -414,7 +413,7 @@ class TestFileTransferConnection:
             # Mock response with file size in last 8 bytes
             response_data = bytearray(49)
             file_size = 2048576
-            response_data[-8:] = file_size.to_bytes(8, byteorder='big')
+            response_data[-8:] = file_size.to_bytes(8, byteorder="big")
             mock_conn.receive_message.return_value = bytes(response_data)
 
             result = await self.connection.get_file_size("/test/path.db")
@@ -426,12 +425,12 @@ class TestFileTransferConnection:
     @pytest.mark.asyncio
     async def test_cleanup_session(self):
         """Test session cleanup."""
-        with patch('stagelinq.file_transfer.StageLinqConnection') as mock_conn_class:
+        with patch("stagelinq.file_transfer.StageLinqConnection") as mock_conn_class:
             mock_conn = AsyncMock()
             mock_conn_class.return_value = mock_conn
             self.connection._connection = mock_conn
 
-            await self.connection.cleanup_session(request_id=123)
+            await self.connection.cleanup_session(session_request_id=123)
 
             mock_conn.send_message.assert_called_once()
             # Verify cleanup message was sent (no response expected)

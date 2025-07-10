@@ -8,10 +8,12 @@ This demonstrates the core functionality for seeing what tracks are playing.
 import asyncio
 
 from stagelinq.discovery import DiscoveryConfig, discover_stagelinq_devices
+from stagelinq.messages import Token
 from stagelinq.value_names import DeckValueNames
 
 
 async def get_track_info():
+    # sourcery skip: merge-duplicate-blocks, remove-redundant-if, replace-interpolation-with-fstring, split-or-ifs
     """Example of getting track information from StageLinq devices."""
 
     print("MUSIC: StageLinq Track Info Example")
@@ -40,7 +42,6 @@ async def get_track_info():
         # 2. Connect to device and get StateMap service
         try:
             # Create client token (using real SC6000 token as example)
-            from stagelinq.messages import Token
 
             client_token = Token(
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x05\x95\x04\x14\x1c"
@@ -77,22 +78,20 @@ async def get_track_info():
 
                     async for state in state_map.states():
                         if "Track" in state.name or "Play" in state.name:
-                            print(
-                                "DATA %s = %s" % (state.name, state.get_typed_value())
-                            )
+                            print(f"DATA {state.name} = {state.get_typed_value()}")
 
                             # Show formatted track info when we get updates
                             if "ArtistName" in state.name:
-                                print("ARTIST: %s" % state.get_typed_value())
+                                print(f"ARTIST: {state.get_typed_value()}")
                             elif "SongName" in state.name:
-                                print("SONG: %s" % state.get_typed_value())
+                                print(f"SONG: {state.get_typed_value()}")
                             elif "CurrentBPM" in state.name:
-                                print("BPM: %s" % state.get_typed_value())
+                                print(f"BPM: {state.get_typed_value()}")
                             elif "Play" in state.name:
                                 status = (
                                     "PLAYING" if state.get_typed_value() else "STOPPED"
                                 )
-                                print("STATUS: %s" % status)
+                                print(f"STATUS: {status}")
 
         except Exception as e:
             print(f"ERROR: Connection failed: {e}")

@@ -171,9 +171,7 @@ class FileAnnouncementMessage(Message):
         # Read size field
         self.size = serializer.read_uint32(reader)
 
-        # Read path as UTF-16BE string
-        path_data = reader.read()
-        if path_data:
+        if path_data := reader.read():
             self.path = path_data.decode("utf-16be").rstrip("\x00")
         else:
             self.path = ""
@@ -396,9 +394,7 @@ class FileTransferFrameEndMessage(Message):
                 f"Expected frame end message type 0x2, got {message_type:#x}"
             )
 
-        # Read success flag (first byte after message type)
-        success_byte = reader.read(1)
-        if success_byte:
+        if success_byte := reader.read(1):
             self.success = bool(success_byte[0])
         else:
             self.success = False
@@ -526,13 +522,23 @@ class DatabaseInfoResponse:
         is_directory = bool(data[1])  # Second byte: boolean "IsDirectory"
         permissions = int.from_bytes(data[4:6], byteorder="big", signed=False)
 
-        # Parse three 13-byte metadata blocks (bytes 6-41)
+        # Parse metadata blocks (bytes 6-40, up to 35 bytes)
         metadata_blocks = []
-        for i in range(3):
-            start = 6 + (i * 13)
-            end = start + 13
-            if end <= len(data) - 8:  # Don't include file size bytes
-                metadata_blocks.append(data[start:end])
+        metadata_start = 6
+        metadata_end = 41  # File size starts at byte 41
+
+        # Parse complete 13-byte blocks first
+        pos = metadata_start
+        while pos + 13 <= metadata_end:
+            metadata_blocks.append(data[pos : pos + 13])
+            pos += 13
+
+        # Handle any remaining partial block
+        if pos < metadata_end:
+            if remaining_bytes := data[pos:metadata_end]:
+                # Pad partial block to 13 bytes
+                padded_block = remaining_bytes.ljust(13, b"\x00")
+                metadata_blocks.append(padded_block)
 
         return cls(
             file_exists=file_exists,
@@ -554,14 +560,20 @@ class DatabaseInfoResponse:
         # Permissions (2 bytes)
         result.extend(self.permissions.to_bytes(2, byteorder="big"))
 
-        # Metadata blocks (3 * 13 = 39 bytes)
+        # Metadata area (35 bytes, bytes 6-40)
+        metadata_bytes = bytearray(35)  # Initialize with zeros
+        pos = 0
+
         for block in self.metadata_blocks:
-            if len(block) == 13:
-                result.extend(block)
-            else:
-                # Pad or truncate to 13 bytes
-                padded = block[:13].ljust(13, b"\x00")
-                result.extend(padded)
+            if pos >= 35:
+                break
+
+            # How many bytes can we write from this block?
+            bytes_to_write = min(len(block), 35 - pos)
+            metadata_bytes[pos : pos + bytes_to_write] = block[:bytes_to_write]
+            pos += 13  # Move to next block position (even if partial)
+
+        result.extend(metadata_bytes)
 
         # File size (8 bytes)
         result.extend(self.file_size.to_bytes(8, byteorder="big"))
@@ -882,14 +894,8 @@ class FileTransferConnection:
         if not response_data or len(response_data) < 8:
             raise ValueError("Invalid file stat response")
 
-        # Parse file size from last 8 bytes (discovered May 9, 2023)
-        # Response format: [header][stat_data:41][file_size:8]
-        if len(response_data) >= 8:
-            file_size_bytes = response_data[-8:]  # Last 8 bytes contain file size
-            file_size = int.from_bytes(file_size_bytes, byteorder="big", signed=False)
-            return file_size
-        else:
-            raise ValueError("Response too short to contain file size")
+        file_size_bytes = response_data[-8:]  # Last 8 bytes contain file size
+        return int.from_bytes(file_size_bytes, byteorder="big", signed=False)
 
     async def get_file(self, database_path: str, chunk_callback=None) -> bytes:
         """Download a complete file using chunked transfers.

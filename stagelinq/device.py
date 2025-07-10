@@ -71,12 +71,10 @@ class DeviceRegistry:
         try:
             # Extract UUID part
             uuid_part = assignment_str.split("{")[1].split("}")[0]
-            device = self.find_device_by_uuid(uuid_part)
-
-            if device and "," in assignment_str:
-                channel_num = assignment_str.split(",")[-1]
-                return f"{device.name} channel {channel_num}"
-            if device:
+            if device := self.find_device_by_uuid(uuid_part):
+                if "," in assignment_str:
+                    channel_num = assignment_str.split(",")[-1]
+                    return f"{device.name} channel {channel_num}"
                 return f"{device.name} ({assignment_str})"
             return assignment_str
         except (IndexError, ValueError):
@@ -194,7 +192,7 @@ class State:
             return self.value
 
     def __str__(self) -> str:
-        return "%s=%s" % (self.name, self.value)
+        return f"{self.name}={self.value}"
 
 
 @dataclass
@@ -511,7 +509,7 @@ class StateMap:
         deck_match = re.search(r"Deck(\d+)", state_name)
         if not deck_match:
             return None, state_name.split("/")[-1] if "/" in state_name else state_name
-        deck_name = f"Deck{deck_match.group(1)}"
+        deck_name = f"Deck{deck_match[1]}"
         return deck_name, state_name.split("/")[-1]
 
     def parse_state_value(self, json_data: str) -> any:

@@ -7,6 +7,7 @@ import signal
 import sys
 from datetime import datetime
 
+from stagelinq.device import AsyncDevice
 from stagelinq.discovery import DiscoveryConfig, discover_stagelinq_devices
 from stagelinq.messages import Token
 from stagelinq.value_names import DeckValueNames
@@ -80,7 +81,7 @@ class NowPlayingApp:
                     devices = await discovery.get_devices()
 
                     if devices:
-                        device = devices[0]
+                        device =  AsyncDevice(**vars(devices[0]))
                         print(f"Found device: {device.name}")
                         print(f"Connecting to {device.name}...")
                         break

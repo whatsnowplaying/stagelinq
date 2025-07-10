@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from .discovery import Device
 from .file_transfer import FileTransferConnection
@@ -182,7 +183,7 @@ class State:
         """Get value with proper type casting."""
         if self.is_float_value():
             return (
-                float(self.value) if isinstance(self.value, int | str) else self.value
+                float(self.value) if isinstance(self.value, (int, str)) else self.value
             )
         elif self.is_boolean_state():
             return bool(self.value)
@@ -512,7 +513,7 @@ class StateMap:
         deck_name = f"Deck{deck_match[1]}"
         return deck_name, state_name.split("/")[-1]
 
-    def parse_state_value(self, json_data: str) -> any:
+    def parse_state_value(self, json_data: str) -> Any:
         """Parse JSON state value with fallback handling."""
         try:
             return json.loads(json_data)

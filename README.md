@@ -22,12 +22,12 @@ This implementation uses modern async/await patterns for all I/O operations and 
 ## Installation
 
 ```bash
-pip install python-stagelinq
+pip install .
 ```
 
 For development with packet analysis tools:
 ```bash
-pip install python-stagelinq[dev]
+pip install .[dev]
 ```
 
 ## Quick Start

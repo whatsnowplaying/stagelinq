@@ -327,6 +327,20 @@ MIT License
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+### A small note about licensing
+
+Open source licenses are legal contracts.
+
+Since this code is effectively a translation of the go-stagelinq code, it inherits the
+(incredibly flexible) MIT license from it. Code from other libraries that are GPL3 and
+other viral licenses are not permitted to be used in closed source applications unless
+they also open source their code and/or get a license grant from _every contributor_ to
+those libraries.
+
+That also means that code commited in those projects' repos cannot be used as the basis
+for code here.  That's a bummer, but that's the nature of licensing.  So before you
+contribute, be sure that you haven't looked at those repositories' implementations.
+
 ### Areas for Contribution
 - Additional device compatibility
 - Enhanced file transfer functionality

@@ -38,13 +38,13 @@ jobs:
       run: |
         pytest --cov=stagelinq --cov-report=xml --cov-report=term-missing
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+    - name: Coverage comment
+      uses: py-cov-action/python-coverage-comment-action@v3
+      if: github.event_name == 'pull_request'
       with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+        GITHUB_TOKEN: ${{ github.token }}
+        MINIMUM_GREEN: 80
+        MINIMUM_ORANGE: 60
 
   lint:
     runs-on: ubuntu-latest

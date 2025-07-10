@@ -72,8 +72,8 @@ async def collect_device_states(
 
                 async def collect_with_timeout():
                     async for state in state_map.states():
-                        collected_states[state.name] = state.value
-                        logging.info(f"    {state.name} = {state.value}")
+                        collected_states[state.name] = state.get_typed_value()
+                        logging.info("    %s = %s", state.name, state.get_typed_value())
 
                         # Check if we have enough states
                         if len(collected_states) >= len(state_names):

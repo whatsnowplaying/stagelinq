@@ -169,17 +169,20 @@ class NowPlayingApp:
         if deck_num is None:
             return
 
-        # Update deck information based on state type
+        # Update deck information based on state type using typed values
         if "ArtistName" in state.name:
-            self.deck_info[deck_num]["artist"] = state.value or ""
+            self.deck_info[deck_num]["artist"] = state.get_typed_value() or ""
         elif "SongName" in state.name:
-            self.deck_info[deck_num]["track"] = state.value or ""
+            self.deck_info[deck_num]["track"] = state.get_typed_value() or ""
         elif "CurrentBPM" in state.name:
-            self.deck_info[deck_num]["bpm"] = float(state.value or 0)
+            # BPM values are already properly typed as float
+            self.deck_info[deck_num]["bpm"] = state.get_typed_value() or 0.0
         elif "PlayState" in state.name:
-            self.deck_info[deck_num]["playing"] = bool(state.value)
+            # Boolean states are already properly typed
+            self.deck_info[deck_num]["playing"] = state.get_typed_value()
         elif "DeckIsMaster" in state.name:
-            self.deck_info[deck_num]["master"] = bool(state.value)
+            # Boolean states are already properly typed
+            self.deck_info[deck_num]["master"] = state.get_typed_value()
 
 
 async def main():

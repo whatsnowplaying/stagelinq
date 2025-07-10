@@ -116,15 +116,85 @@ class StateCategory(Enum):
     OTHER = "other"
 
 
+class StateValueType(Enum):
+    """StageLinq StateMap value types based on protocol documentation."""
+
+    VALUE_FLOAT = 0  # Float value (type 0)
+    STATE_BOOL = 1  # Boolean state (type 1)
+    LOOP_STATE = 2  # Loop/button state (type 2)
+    TRACK_DATA = 3  # Track data state (type 3)
+    STRING_ENUM = 4  # String enumeration (type 4)
+    STRING_TEXT = 8  # Text string (type 8)
+    VALUE_INT = 10  # Integer value (type 10)
+    SAMPLE_RATE = 14  # Sample rate/technical value (type 14)
+    COLOR = 16  # Color value (type 16)
+
+
 @dataclass
 class State:
-    """Represents a device state value."""
+    """Represents a device state value with proper type handling."""
 
     name: str
-    value: any
+    value: float | bool | str | int
+    type_hint: int = 0
+
+    @classmethod
+    def from_json_data(cls, name: str, json_data: dict) -> State:
+        """Create State from parsed JSON data with type information."""
+        type_hint = json_data.get("type", 0)
+
+        # Extract value based on type
+        if type_hint in (0, 10, 14):  # Float/int values
+            value = json_data.get("value", 0)
+        elif type_hint in (1, 2, 3):  # Boolean states
+            value = json_data.get("state", False)
+        elif type_hint in (4, 8):  # String values
+            value = json_data.get("string", "")
+        elif type_hint == 16:  # Color values
+            value = json_data.get("color", "#ff000000")
+        else:
+            # Unknown type, try to extract any available value
+            value = (
+                json_data.get("value")
+                or json_data.get("state")
+                or json_data.get("string")
+                or json_data.get("color")
+                or ""
+            )
+
+        return cls(name=name, value=value, type_hint=type_hint)
+
+    def is_float_value(self) -> bool:
+        """Check if this is a float/numeric value (types 0, 10, 14)."""
+        return self.type_hint in (0, 10, 14)
+
+    def is_boolean_state(self) -> bool:
+        """Check if this is a boolean state (types 1, 2, 3)."""
+        return self.type_hint in (1, 2, 3)
+
+    def is_string_value(self) -> bool:
+        """Check if this is a string value (types 4, 8)."""
+        return self.type_hint in (4, 8)
+
+    def is_color_value(self) -> bool:
+        """Check if this is a color value (type 16)."""
+        return self.type_hint == 16
+
+    def get_typed_value(self) -> float | bool | str | int:
+        """Get value with proper type casting."""
+        if self.is_float_value():
+            return (
+                float(self.value) if isinstance(self.value, (int, str)) else self.value
+            )
+        elif self.is_boolean_state():
+            return bool(self.value)
+        elif self.is_string_value() or self.is_color_value():
+            return str(self.value)
+        else:
+            return self.value
 
     def __str__(self) -> str:
-        return f"{self.name}={self.value}"
+        return "%s=%s" % (self.name, self.value)
 
 
 @dataclass
@@ -184,7 +254,7 @@ class DeviceConnection:
             await self._connection.connect()
             logger.info("Connected to device %s", self.device)
         except Exception as e:
-            raise ConnectionError("Failed to connect to %s: %s", self.device, e) from e
+            raise ConnectionError(f"Failed to connect to {self.device}: {e}") from e
 
     async def disconnect(self) -> None:
         """Disconnect from the device."""
@@ -387,13 +457,13 @@ class StateMap:
             try:
                 msg = StateEmitMessage.deserialize(message_data)
 
-                # Parse JSON value
+                # Parse JSON value with type information
                 try:
-                    value = json.loads(msg.json_data)
+                    json_data = json.loads(msg.json_data)
+                    yield State.from_json_data(name=msg.name, json_data=json_data)
                 except json.JSONDecodeError:
-                    value = msg.json_data
-
-                yield State(name=msg.name, value=value)
+                    # Fallback for invalid JSON - create basic State
+                    yield State(name=msg.name, value=msg.json_data, type_hint=0)
 
             except Exception as e:
                 logger.error("Error parsing state message: %s", e)

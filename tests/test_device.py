@@ -371,7 +371,7 @@ async def test_state_map_states_iterator(mock_token):
         # Should have received one state
         assert len(states) == 1
         assert states[0].name == "/Engine/Deck1/Play"
-        assert states[0].value == {"value": True}
+        assert states[0].value is True
 
         await state_map.disconnect()
 

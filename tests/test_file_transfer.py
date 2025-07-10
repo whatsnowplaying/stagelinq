@@ -221,7 +221,8 @@ class TestFileTransferConnection:
         sources = await conn.get_sources()
 
         assert isinstance(sources, list)
-        mock_stagelinq_conn.send_message.assert_called_once()
+        # Should be called twice: once for sources request, once for session cleanup
+        assert mock_stagelinq_conn.send_message.call_count == 2
         mock_stagelinq_conn.receive_message.assert_called_once()
 
     @pytest.mark.asyncio
@@ -262,18 +263,27 @@ class TestFileTransferConnection:
 
     @pytest.mark.asyncio
     async def test_download_database_placeholder(self):
-        """Test download_database returns placeholder."""
+        """Test download_database with mocked file size and data."""
         token = Token(b"\x00" * 16)
         conn = FileTransferConnection("192.168.1.100", 50000, token)
 
         mock_stagelinq_conn = AsyncMock()
+        # Mock file size response (8 bytes minimum for penultimate 4 bytes)
+        mock_stagelinq_conn.receive_message.side_effect = [
+            b"\x00\x00\x00\x64\x00\x00\x00\x10",  # File size response: size=100 in penultimate 4 bytes
+            b"test_data",  # First chunk
+        ]
         conn._connection = mock_stagelinq_conn
         conn._sources = [FileSource("Music (SD)", "/Music/database.db")]
 
-        result = await conn.download_database("Music (SD)")
+        with patch.object(
+            conn, "get_file", return_value=b"mock_file_data"
+        ) as mock_get_file:
+            result = await conn.download_database("Music (SD)")
 
-        # Currently returns placeholder empty bytes
-        assert result == b""
+            # Should call get_file with the database path
+            mock_get_file.assert_called_once()
+            assert result == b"mock_file_data"
 
     @pytest.mark.asyncio
     async def test_get_database_info_not_connected(self):

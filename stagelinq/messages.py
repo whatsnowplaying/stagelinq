@@ -163,6 +163,64 @@ class MessageSerializer:
 serializer = MessageSerializer()
 
 
+class LengthPrefixedReader:
+    """Utility for handling length-prefixed message parsing."""
+
+    @staticmethod
+    def read_with_length_prefix(
+        reader: BinaryIO, expected_magic: bytes | None = None
+    ) -> BinaryIO:
+        """
+        Read a length-prefixed message and return a reader for the content.
+
+        Args:
+            reader: Source reader
+            expected_magic: If provided, will peek to check if length prefix is needed
+
+        Returns:
+            BinaryIO reader positioned at the message content
+        """
+        if expected_magic:
+            # Peek at first bytes to check if length prefix exists
+            current_pos = reader.tell()
+            first_bytes = reader.read(len(expected_magic))
+            reader.seek(current_pos)
+
+            # If starts with magic, no length prefix
+            if first_bytes == expected_magic:
+                return reader
+
+        # Read length prefix
+        length = serializer.read_uint32(reader)
+
+        # Read message content
+        message_data = reader.read(length)
+        if len(message_data) != length:
+            raise EOFError(
+                f"Failed to read complete message: expected {length} bytes, got {len(message_data)}"
+            )
+
+        return io.BytesIO(message_data)
+
+    @staticmethod
+    def write_with_length_prefix(writer: BinaryIO, content_writer_func) -> None:
+        """
+        Write a message with length prefix.
+
+        Args:
+            writer: Destination writer
+            content_writer_func: Function that writes content to a BytesIO buffer
+        """
+        # Build message payload
+        payload = io.BytesIO()
+        content_writer_func(payload)
+
+        # Write length and payload
+        payload_data = payload.getvalue()
+        serializer.write_uint32(writer, len(payload_data))
+        writer.write(payload_data)
+
+
 class Message(ABC):
     """Base class for all StageLinq messages."""
 
@@ -393,32 +451,31 @@ class StateSubscribeMessage(Message):
 
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
-        _length = serializer.read_uint32(reader)
+        msg_reader = LengthPrefixedReader.read_with_length_prefix(reader)
 
-        magic = reader.read(4)
+        magic = msg_reader.read(4)
         if magic != SMAA_MAGIC:
             raise ValueError("Invalid SMAA magic")
 
-        magic_id = serializer.read_uint32(reader)
+        magic_id = serializer.read_uint32(msg_reader)
         if magic_id != self.MAGIC_ID:
             raise ValueError(f"Invalid magic ID: {magic_id}")
 
-        self.name = serializer.read_utf16_string(reader, max_length=1024)  # State name
-        self.interval = serializer.read_uint32(reader)
+        self.name = serializer.read_utf16_string(
+            msg_reader, max_length=1024
+        )  # State name
+        self.interval = serializer.read_uint32(msg_reader)
 
     def write_to(self, writer: BinaryIO) -> None:
         """Write message to stream."""
-        # Build message payload
-        payload = io.BytesIO()
-        payload.write(SMAA_MAGIC)
-        serializer.write_uint32(payload, self.MAGIC_ID)
-        serializer.write_utf16_string(payload, self.name)
-        serializer.write_uint32(payload, self.interval)
 
-        # Write length and payload
-        payload_data = payload.getvalue()
-        serializer.write_uint32(writer, len(payload_data))
-        writer.write(payload_data)
+        def write_content(payload):
+            payload.write(SMAA_MAGIC)
+            serializer.write_uint32(payload, self.MAGIC_ID)
+            serializer.write_utf16_string(payload, self.name)
+            serializer.write_uint32(payload, self.interval)
+
+        LengthPrefixedReader.write_with_length_prefix(writer, write_content)
 
 
 @dataclass
@@ -432,25 +489,8 @@ class StateEmitMessage(Message):
 
     def read_from(self, reader: BinaryIO) -> None:
         """Read message from stream."""
-        # Check if we need to read length prefix by peeking at first 4 bytes
-        current_pos = reader.tell()
-        first_4_bytes = reader.read(4)
-        reader.seek(current_pos)
-
-        # If first 4 bytes are SMAA magic, then no length prefix
-        if first_4_bytes == SMAA_MAGIC:
-            # Direct message data without length prefix
-            msg_reader = reader
-        else:
-            # Has length prefix, read it
-            length = serializer.read_uint32(reader)
-
-            # Read entire message into buffer
-            message_data = reader.read(length)
-            if len(message_data) != length:
-                raise EOFError("Failed to read complete message")
-
-            msg_reader = io.BytesIO(message_data)
+        # Use utility to handle conditional length prefix
+        msg_reader = LengthPrefixedReader.read_with_length_prefix(reader, SMAA_MAGIC)
 
         magic = msg_reader.read(4)
         if magic != SMAA_MAGIC:
@@ -472,17 +512,14 @@ class StateEmitMessage(Message):
 
     def write_to(self, writer: BinaryIO) -> None:
         """Write message to stream."""
-        # Build message payload
-        payload = io.BytesIO()
-        payload.write(SMAA_MAGIC)
-        serializer.write_uint32(payload, self.MAGIC_ID)
-        serializer.write_utf16_string(payload, self.name)
-        serializer.write_utf16_string(payload, self.json_data)
 
-        # Write length and payload
-        payload_data = payload.getvalue()
-        serializer.write_uint32(writer, len(payload_data))
-        writer.write(payload_data)
+        def write_content(payload):
+            payload.write(SMAA_MAGIC)
+            serializer.write_uint32(payload, self.MAGIC_ID)
+            serializer.write_utf16_string(payload, self.name)
+            serializer.write_utf16_string(payload, self.json_data)
+
+        LengthPrefixedReader.write_with_length_prefix(writer, write_content)
 
 
 @dataclass

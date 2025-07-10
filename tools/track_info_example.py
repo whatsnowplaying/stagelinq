@@ -77,18 +77,22 @@ async def get_track_info():
 
                     async for state in state_map.states():
                         if "Track" in state.name or "Play" in state.name:
-                            print(f"DATA {state.name} = {state.value}")
+                            print(
+                                "DATA %s = %s" % (state.name, state.get_typed_value())
+                            )
 
                             # Show formatted track info when we get updates
                             if "ArtistName" in state.name:
-                                print(f"ARTIST: {state.value}")
+                                print("ARTIST: %s" % state.get_typed_value())
                             elif "SongName" in state.name:
-                                print(f"SONG: {state.value}")
+                                print("SONG: %s" % state.get_typed_value())
                             elif "CurrentBPM" in state.name:
-                                print(f"BPM: {state.value}")
+                                print("BPM: %s" % state.get_typed_value())
                             elif "Play" in state.name:
-                                status = "PLAYING" if state.value else "STOPPED"
-                                print(f"STATUS: {status}")
+                                status = (
+                                    "PLAYING" if state.get_typed_value() else "STOPPED"
+                                )
+                                print("STATUS: %s" % status)
 
         except Exception as e:
             print(f"ERROR: Connection failed: {e}")

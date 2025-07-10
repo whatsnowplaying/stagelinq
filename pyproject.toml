@@ -137,6 +137,7 @@ markers = [
 ]
 
 [tool.coverage.run]
+relative_files = true
 source = ["stagelinq"]
 omit = [
     "*/tests/*",

@@ -201,7 +201,11 @@ class StageLinqDiscovery:
 
         # Send to all broadcast addresses
         for broadcast_addr in self._get_broadcast_addresses():
-            self._transport.sendto(data, (broadcast_addr, self.config.port))
+            try:
+                self._transport.sendto(data, (broadcast_addr, self.config.port))
+            except Exception as e:
+                # Skip IPv6 addresses or other invalid addresses for IPv4 socket
+                logger.debug("Failed to send to %s: %s", broadcast_addr, e)
 
     def _get_broadcast_addresses(self) -> list[str]:
         """Get broadcast addresses for all network interfaces."""

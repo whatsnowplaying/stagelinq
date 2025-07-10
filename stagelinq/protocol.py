@@ -350,3 +350,18 @@ class StageLinqConnection:
     ) -> None:
         """Async context manager exit."""
         await self.disconnect()
+
+    @classmethod
+    def from_streams(
+        cls, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> StageLinqConnection:
+        """Create a StageLinqConnection from existing streams (for server-side connections)."""
+        # Create an instance without connecting
+        peer_addr = writer.get_extra_info("peername")
+        host = peer_addr[0] if peer_addr else "unknown"
+        port = peer_addr[1] if peer_addr else 0
+
+        connection = cls(host, port)
+        # Directly set the stream instead of connecting
+        connection._stream = MessageStream(reader, writer)
+        return connection

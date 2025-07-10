@@ -158,7 +158,7 @@ class FileTransferService(StageLinqService):
         """Handle file transfer service protocol."""
         try:
             # Wait for service announcement from device
-            async for message_data in connection.messages():
+            async for _ in connection.messages():
                 try:
                     # Handle file transfer requests here
                     # This would integrate with our existing FileTransferRequestMessage handling
@@ -187,7 +187,7 @@ class StateMapService(StageLinqService):
     ) -> None:
         """Handle StateMap service protocol."""
         try:
-            async for message_data in connection.messages():
+            async for _ in connection.messages():
                 try:
                     # Handle state map messages
                     logger.debug("Received state map message from %s", device_id)
@@ -211,7 +211,7 @@ class BeatInfoService(StageLinqService):
     ) -> None:
         """Handle BeatInfo service protocol."""
         try:
-            async for message_data in connection.messages():
+            async for _ in connection.messages():
                 try:
                     # Handle beat info messages
                     logger.debug("Received beat info message from %s", device_id)

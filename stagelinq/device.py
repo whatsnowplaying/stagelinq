@@ -182,7 +182,7 @@ class State:
         """Get value with proper type casting."""
         if self.is_float_value():
             return (
-                float(self.value) if isinstance(self.value, (int, str)) else self.value
+                float(self.value) if isinstance(self.value, int | str) else self.value
             )
         elif self.is_boolean_state():
             return bool(self.value)

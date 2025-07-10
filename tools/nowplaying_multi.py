@@ -12,7 +12,6 @@ import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 # Add the parent directory to the path so we can import the local stagelinq module
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -91,10 +90,10 @@ class MultiDeviceNowPlayingApp:
 
     def __init__(self):
         self.running = True
-        self.devices: Dict[str, Dict] = {}  # device_id -> device_info
-        self.deck_info: Dict[str, Dict] = {}  # device_id:deck_num -> deck_info
+        self.devices: dict[str, dict] = {}  # device_id -> device_info
+        self.deck_info: dict[str, dict] = {}  # device_id:deck_num -> deck_info
         self.last_update = datetime.now()
-        self.listener: Optional[StageLinqListener] = None
+        self.listener: StageLinqListener | None = None
 
     def signal_handler(self, signum, frame):
         """Handle Ctrl+C gracefully."""
@@ -173,7 +172,7 @@ class MultiDeviceNowPlayingApp:
         # Update display after each state change
         self.display_status()
 
-    def _extract_deck_number(self, state_name: str) -> Optional[int]:
+    def _extract_deck_number(self, state_name: str) -> int | None:
         """Extract deck number from state path."""
         # Look for deck identifiers in the state name
         parts = state_name.split("/")
@@ -242,9 +241,9 @@ class MultiDeviceNowPlayingApp:
                     print(f"      Artist: {deck['artist'] or 'Unknown'}")
                     print(f"      Track:  {deck['track'] or 'Unknown'}")
                 else:
-                    print(f"      No track loaded")
+                    print("      No track loaded")
 
-        print(f"\nPress Ctrl+C to exit")
+        print("\nPress Ctrl+C to exit")
 
     async def start_listener_mode(self, state_port: int = 51338):
         """Start in listener mode where devices connect to us."""

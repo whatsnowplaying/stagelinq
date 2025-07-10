@@ -25,12 +25,12 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 # Add the parent directory to the path so we can import the local stagelinq module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from stagelinq import StageLinqListener, create_analytics_server
+from stagelinq import StageLinqListener
 from stagelinq.device import State, StateValueType
 from stagelinq.listener import BeatInfoService, StateMapService
 from stagelinq.messages import BeatEmitMessage, Token, parse_beat_message
@@ -72,9 +72,9 @@ class DeckState:
     volume: float = 0.0
     crossfader_assign: str = ""
     loop_enabled: bool = False
-    hot_cue_states: Dict[int, bool] = field(default_factory=dict)
+    hot_cue_states: dict[int, bool] = field(default_factory=dict)
     current_track: TrackInfo = field(default_factory=TrackInfo)
-    last_beat_time: Optional[datetime] = None
+    last_beat_time: datetime | None = None
     beat_count: int = 0
 
 
@@ -163,20 +163,20 @@ class AnalyticsDashboard:
     def __init__(self, state_port: int = 51338, beat_port: int = 51339):
         self.state_port = state_port
         self.beat_port = beat_port
-        self.listener: Optional[StageLinqListener] = None
+        self.listener: StageLinqListener | None = None
 
         # Analytics data storage
-        self.devices: Dict[str, DeviceMetrics] = {}
-        self.decks: Dict[str, DeckState] = {}  # deck_key -> DeckState
+        self.devices: dict[str, DeviceMetrics] = {}
+        self.decks: dict[str, DeckState] = {}  # deck_key -> DeckState
         self.session_start_time = datetime.now()
 
         # Track transition detection
-        self.track_history: List[Dict[str, Any]] = []
-        self.transition_events: List[Dict[str, Any]] = []
+        self.track_history: list[dict[str, Any]] = []
+        self.transition_events: list[dict[str, Any]] = []
 
         # Beat sync analysis
-        self.beat_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
-        self.sync_analysis: Dict[str, Any] = {}
+        self.beat_history: dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
+        self.sync_analysis: dict[str, Any] = {}
 
         # Performance metrics
         self.state_update_rate = defaultdict(
@@ -337,7 +337,7 @@ class AnalyticsDashboard:
             if "Engine" in state.name:
                 self.devices[device_id].device_name = "Denon Engine"
 
-    def _extract_deck_name(self, state_name: str) -> Optional[str]:
+    def _extract_deck_name(self, state_name: str) -> str | None:
         """Extract deck name from state path."""
         # Look for deck identifiers in the state name
         parts = state_name.split("/")
@@ -483,7 +483,7 @@ class AnalyticsDashboard:
             self.sync_analysis = sync_analysis
 
     def _calculate_sync_quality(
-        self, beats1: List[Dict], beats2: List[Dict], threshold: float
+        self, beats1: list[dict], beats2: list[dict], threshold: float
     ) -> float:
         """Calculate sync quality between two sets of beats."""
         if not beats1 or not beats2:
@@ -502,7 +502,7 @@ class AnalyticsDashboard:
 
         return sync_count / total_comparisons if total_comparisons > 0 else 0.0
 
-    def get_analytics_summary(self) -> Dict[str, Any]:
+    def get_analytics_summary(self) -> dict[str, Any]:
         """Get comprehensive analytics summary."""
         current_time = datetime.now()
         session_duration = current_time - self.session_start_time
@@ -654,7 +654,7 @@ class AnalyticsDashboard:
 
                 # Device status
                 if summary["devices"]:
-                    print(f"\nDEVICE STATUS:")
+                    print("\nDEVICE STATUS:")
                     for device_id, device in summary["devices"].items():
                         status = "🟢" if device["connected"] else "🔴"
                         rates = device["update_rates"]
@@ -668,7 +668,7 @@ class AnalyticsDashboard:
 
                 # Active decks
                 if summary["active_decks"]:
-                    print(f"\nACTIVE DECKS:")
+                    print("\nACTIVE DECKS:")
                     for deck in summary["active_decks"]:
                         status = "▶️" if deck["is_playing"] else "⏸️"
                         master = "👑" if deck["is_master"] else "  "
@@ -683,7 +683,7 @@ class AnalyticsDashboard:
                 if summary["sync_analysis"] and summary["sync_analysis"].get(
                     "sync_pairs"
                 ):
-                    print(f"\nBEAT SYNC ANALYSIS:")
+                    print("\nBEAT SYNC ANALYSIS:")
                     for pair in summary["sync_analysis"]["sync_pairs"]:
                         quality = pair["sync_quality"] * 100
                         sync_icon = (
@@ -695,7 +695,7 @@ class AnalyticsDashboard:
 
                 # Statistics
                 stats = summary["statistics"]
-                print(f"\nSESSION STATISTICS:")
+                print("\nSESSION STATISTICS:")
                 print(f"  Tracks Played: {stats['total_tracks_played']}")
                 print(f"  Transitions: {stats['total_transitions']}")
                 if stats["average_track_duration"] > 0:
@@ -778,11 +778,11 @@ async def main():
             dashboard.print_status_loop(args.status_interval)
         )
 
-        print(f"\n🎧 DJ Analytics Dashboard Running")
+        print("\n🎧 DJ Analytics Dashboard Running")
         print(f"StateMap Service: Port {args.state_port}")
         print(f"BeatInfo Service: Port {args.beat_port}")
-        print(f"Waiting for DJ devices to connect...")
-        print(f"Press Ctrl+C to stop\n")
+        print("Waiting for DJ devices to connect...")
+        print("Press Ctrl+C to stop\n")
 
         # Wait for shutdown
         await shutdown_event.wait()

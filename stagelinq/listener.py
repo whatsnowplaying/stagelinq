@@ -13,10 +13,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set
 
-from .discovery import Device
-from .file_transfer import FileTransferConnection
 from .messages import (
     ReferenceMessage,
     ServiceAnnouncementMessage,
@@ -43,8 +40,8 @@ class StageLinqService(ABC):
     def __init__(self, port: int, token: Token):
         self.port = port
         self.token = token
-        self.connections: Dict[str, StageLinqConnection] = {}
-        self._server: Optional[asyncio.Server] = None
+        self.connections: dict[str, StageLinqConnection] = {}
+        self._server: asyncio.Server | None = None
 
     async def start(self) -> None:
         """Start the service listener."""
@@ -104,7 +101,7 @@ class StageLinqService(ABC):
 class DirectoryService(StageLinqService):
     """Directory service that handles initial device connections and service announcements."""
 
-    def __init__(self, port: int, token: Token, offered_services: List[ServiceInfo]):
+    def __init__(self, port: int, token: Token, offered_services: list[ServiceInfo]):
         super().__init__(port, token)
         self.offered_services = offered_services
 
@@ -239,9 +236,9 @@ class StageLinqListener:
             b"\xff\xff\xff\xff\xff\xff\x00\x00\x80\x00\x00\x05\x95\x04\x14\x1c"
         )
         self.discovery_port = discovery_port
-        self.services: Dict[str, StageLinqService] = {}
-        self.offered_services: List[ServiceInfo] = []
-        self._discovery_task: Optional[asyncio.Task] = None
+        self.services: dict[str, StageLinqService] = {}
+        self.offered_services: list[ServiceInfo] = []
+        self._discovery_task: asyncio.Task | None = None
 
     def add_service(self, service_name: str, port: int, service_class: type) -> None:
         """Add a service that devices can connect to."""

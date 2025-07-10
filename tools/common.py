@@ -8,7 +8,6 @@ from typing import Any
 from stagelinq.discovery import Device, DiscoveryConfig, discover_stagelinq_devices
 from stagelinq.messages import Token
 
-
 # Default client token from SC6000 reference
 DEFAULT_CLIENT_TOKEN = Token(
     b"\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x05\x95\x04\x14\x1c"

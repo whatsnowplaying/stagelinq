@@ -81,11 +81,9 @@ Remote Source Implementation:
 
 from __future__ import annotations
 
-import contextlib
 import io
 import logging
 import math
-import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
@@ -506,7 +504,7 @@ class DatabaseInfoResponse:
     metadata_blocks: list[bytes]  # Three 13-byte metadata blocks
 
     @classmethod
-    def parse(cls, response_data: bytes) -> "DatabaseInfoResponse":
+    def parse(cls, response_data: bytes) -> DatabaseInfoResponse:
         """Parse DATABASE_INFO response from raw bytes."""
         if len(response_data) < 49:
             raise ValueError(

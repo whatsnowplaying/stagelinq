@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StageLinq now playing app."""
+"""StagelinQ now playing app."""
 
 import asyncio
 import logging
@@ -13,7 +13,7 @@ from stagelinq.messages import Token
 from stagelinq.value_names import DeckValueNames
 
 # Suppress noisy protocol errors - these are expected when IPv6 is available
-# but StageLinq devices only support IPv4
+# but StagelinQ devices only support IPv4
 logging.getLogger("stagelinq.protocol").setLevel(logging.CRITICAL)
 
 
@@ -37,7 +37,7 @@ class NowPlayingApp:
         """Display current deck status."""
         # Clear screen and show header
         print("\033[H\033[J")  # Clear screen
-        print("StageLinq Now Playing")
+        print("StagelinQ Now Playing")
         print("=" * 60)
         print(f"Last update: {self.last_update.strftime('%H:%M:%S')}")
         print("-" * 60)
@@ -65,12 +65,12 @@ class NowPlayingApp:
         # Set up signal handler
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        print("StageLinq Now Playing App Starting...")
-        print("Waiting for StageLinq devices to appear...")
+        print("StagelinQ Now Playing App Starting...")
+        print("Waiting for StagelinQ devices to appear...")
         print("(Make sure your DJ equipment is connected to the same network)")
         print("Press Ctrl+C to exit\n")
 
-        # Discover StageLinq devices with retry loop
+        # Discover StagelinQ devices with retry loop
         config = DiscoveryConfig(discovery_timeout=3.0)
 
         device = None
@@ -196,5 +196,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nThanks for using StageLinq Now Playing!")
+        print("\nThanks for using StagelinQ Now Playing!")
         sys.exit(0)

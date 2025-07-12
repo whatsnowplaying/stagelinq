@@ -1,7 +1,7 @@
 """
 Test suite using real SC6000 packet captures as the authoritative reference.
 
-This test suite validates our Pythonic StageLinq implementation against
+This test suite validates our Pythonic StagelinQ implementation against
 real-world data from actual DJ equipment, ensuring protocol correctness.
 """
 

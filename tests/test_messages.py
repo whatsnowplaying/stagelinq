@@ -1,4 +1,4 @@
-"""Tests for StageLinq message parsing and serialization."""
+"""Tests for StagelinQ message parsing and serialization."""
 
 from __future__ import annotations
 

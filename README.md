@@ -1,16 +1,16 @@
-# Python StageLinq
+# Python StagelinQ
 
-A Python implementation of Denon's StageLinq protocol for communicating with DJ equipment like Denon Prime series devices.
+A Python implementation of Denon's StagelinQ protocol for communicating with DJ equipment like Denon Prime series devices.
 
 This implementation uses modern async/await patterns for all I/O operations and provides comprehensive tools for device discovery, state monitoring, beat information, and file transfer.
 
 ## Features
 
-- **Device Discovery**: Automatic discovery of StageLinq devices on the network
+- **Device Discovery**: Automatic discovery of StagelinQ devices on the network
 - **State Monitoring**: Real-time track information and deck state updates
 - **Beat Information**: Live beat timing and BPM data
 - **File Transfer**: Access to Engine Library databases and files
-- **Packet Analysis**: Tools for analyzing StageLinq protocol traffic
+- **Packet Analysis**: Tools for analyzing StagelinQ protocol traffic
 - **Comprehensive Testing**: 84% test coverage with extensive unit tests
 
 ## Requirements
@@ -174,7 +174,7 @@ asyncio.run(main())
 #### Discovery
 - `discover_stagelinq_devices(config)`: Context manager for device discovery
 - `DiscoveryConfig`: Configuration for device discovery
-- `Device`: Represents a StageLinq device
+- `Device`: Represents a StagelinQ device
 - `DeviceState`: Enum for device states (PRESENT, LEAVING)
 - `DeviceRegistry`: Collection of discovered devices with lookup capabilities
 
@@ -350,4 +350,4 @@ contribute, be sure that you haven't looked at those repositories' implementatio
 
 ## Acknowledgments
 
-This implementation is based on the Go implementation at https://github.com/icedream/go-stagelinq and research into the StageLinq protocol by the open-source DJ community.
+This implementation is based on the Go implementation at https://github.com/icedream/go-stagelinq and research into the StagelinQ protocol by the open-source DJ community.

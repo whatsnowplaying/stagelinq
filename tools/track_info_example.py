@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example: Get track info from StageLinq devices
+Example: Get track info from StagelinQ devices
 
 This demonstrates the core functionality for seeing what tracks are playing.
 """
@@ -14,13 +14,13 @@ from stagelinq.value_names import DeckValueNames
 
 async def get_track_info():
     # sourcery skip: merge-duplicate-blocks, remove-redundant-if, replace-interpolation-with-fstring, split-or-ifs
-    """Example of getting track information from StageLinq devices."""
+    """Example of getting track information from StagelinQ devices."""
 
-    print("MUSIC: StageLinq Track Info Example")
+    print("MUSIC: StagelinQ Track Info Example")
     print("=" * 40)
 
-    # 1. Device Discovery - Find StageLinq devices on network
-    print("1. Discovering StageLinq devices...")
+    # 1. Device Discovery - Find StagelinQ devices on network
+    print("1. Discovering StagelinQ devices...")
     config = DiscoveryConfig(discovery_timeout=3.0)
 
     async with discover_stagelinq_devices(config) as discovery:
@@ -28,7 +28,7 @@ async def get_track_info():
         devices = await discovery.get_devices()
 
         if not devices:
-            print("ERROR: No StageLinq devices found")
+            print("ERROR: No StagelinQ devices found")
             print("   Make sure your DJ equipment is on the same network")
             return
 

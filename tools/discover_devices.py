@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StageLinq device discovery example."""
+"""StagelinQ device discovery example."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ async def collect_device_states(
 
 
 async def discover_devices(config: DiscoveryConfig, timeout: float) -> list[Any]:
-    """Discover StageLinq devices on the network."""
+    """Discover StagelinQ devices on the network."""
     found_devices: list[Any] = []
 
     logging.info(f"Listening for devices for {timeout} seconds...")
@@ -119,7 +119,7 @@ async def discover_devices(config: DiscoveryConfig, timeout: float) -> list[Any]
 
 async def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Discover StageLinq devices")
+    parser = argparse.ArgumentParser(description="Discover StagelinQ devices")
     parser.add_argument(
         "--timeout",
         type=float,
@@ -144,7 +144,7 @@ async def main() -> None:
 
     # Create discovery configuration
     config = DiscoveryConfig(
-        name="Python StageLinq Example",
+        name="Python StagelinQ Example",
         software_name="python-stagelinq",
         software_version="0.1.0",
         discovery_timeout=args.timeout,

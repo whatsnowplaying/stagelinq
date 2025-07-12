@@ -1,4 +1,4 @@
-"""Tests for StageLinq device connections."""
+"""Tests for StagelinQ device connections."""
 
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ def mock_token():
 async def test_device_connection_context_manager(mock_device, mock_token):
     """Test DeviceConnection as async context manager."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -103,7 +103,7 @@ async def test_device_connection_context_manager(mock_device, mock_token):
 async def test_device_connection_connect_disconnect(mock_device, mock_token):
     """Test explicit connect/disconnect."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -125,7 +125,7 @@ async def test_device_connection_connect_disconnect(mock_device, mock_token):
 async def test_device_connection_connect_error(mock_device, mock_token):
     """Test connection error handling."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn_class.side_effect = OSError("Connection failed")
 
         conn = DeviceConnection(mock_device, mock_token)
@@ -138,7 +138,7 @@ async def test_device_connection_connect_error(mock_device, mock_token):
 async def test_device_connection_double_connect(mock_device, mock_token):
     """Test that double connect is handled gracefully."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -161,7 +161,7 @@ async def test_device_connection_double_connect(mock_device, mock_token):
 async def test_device_connection_discover_services(mock_device, mock_token):
     """Test service discovery."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -217,7 +217,7 @@ async def test_device_connection_discover_services(mock_device, mock_token):
 async def test_device_connection_state_map_context(mock_device, mock_token):
     """Test state map context manager."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -248,7 +248,7 @@ async def test_device_connection_state_map_context(mock_device, mock_token):
 async def test_device_connection_beat_info_context(mock_device, mock_token):
     """Test beat info context manager."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -279,7 +279,7 @@ async def test_device_connection_beat_info_context(mock_device, mock_token):
 async def test_state_map_connect_disconnect(mock_token):
     """Test StateMap connect/disconnect."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -302,7 +302,7 @@ async def test_state_map_connect_disconnect(mock_token):
 async def test_state_map_subscribe(mock_token):
     """Test StateMap subscription."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -341,7 +341,7 @@ async def test_state_map_subscribe(mock_token):
 async def test_state_map_states_iterator(mock_token):
     """Test StateMap states async iterator."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -380,7 +380,7 @@ async def test_state_map_states_iterator(mock_token):
 async def test_beat_info_stream_connect_disconnect(mock_token):
     """Test BeatInfoStream connect/disconnect."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -402,7 +402,7 @@ async def test_beat_info_stream_connect_disconnect(mock_token):
 async def test_beat_info_stream_start_stream(mock_token):
     """Test BeatInfoStream start_stream."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -439,7 +439,7 @@ async def test_beat_info_stream_start_stream(mock_token):
 async def test_beat_info_stream_beats_iterator(mock_token):
     """Test BeatInfoStream beats async iterator."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -511,7 +511,7 @@ async def test_async_device_state_map_context(mock_token):
     )
 
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -544,7 +544,7 @@ async def test_async_device_beat_info_context(mock_token):
     )
 
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 
@@ -567,7 +567,7 @@ async def test_async_device_beat_info_context(mock_token):
 async def test_state_map_json_parse_error(mock_token):
     """Test StateMap handling of JSON parse errors."""
     # Mock at the protocol layer instead of core asyncio
-    with patch("stagelinq.device.StageLinqConnection") as mock_conn_class:
+    with patch("stagelinq.device.StagelinQConnection") as mock_conn_class:
         mock_conn = AsyncMock()
         mock_conn_class.return_value = mock_conn
 

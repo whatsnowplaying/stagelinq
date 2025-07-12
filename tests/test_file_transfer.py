@@ -388,7 +388,7 @@ class TestFileTransferConnection:
     @pytest.mark.asyncio
     async def test_connect_disconnect(self):
         """Test connection and disconnection."""
-        with patch("stagelinq.file_transfer.StageLinqConnection") as mock_conn_class:
+        with patch("stagelinq.file_transfer.StagelinQConnection") as mock_conn_class:
             mock_conn = AsyncMock()
             mock_conn_class.return_value = mock_conn
 
@@ -405,7 +405,7 @@ class TestFileTransferConnection:
     @pytest.mark.asyncio
     async def test_get_file_size(self):
         """Test getting file size using DATABASE_INFO request."""
-        with patch("stagelinq.file_transfer.StageLinqConnection") as mock_conn_class:
+        with patch("stagelinq.file_transfer.StagelinQConnection") as mock_conn_class:
             mock_conn = AsyncMock()
             mock_conn_class.return_value = mock_conn
             self.connection._connection = mock_conn
@@ -425,7 +425,7 @@ class TestFileTransferConnection:
     @pytest.mark.asyncio
     async def test_cleanup_session(self):
         """Test session cleanup."""
-        with patch("stagelinq.file_transfer.StageLinqConnection") as mock_conn_class:
+        with patch("stagelinq.file_transfer.StagelinQConnection") as mock_conn_class:
             mock_conn = AsyncMock()
             mock_conn_class.return_value = mock_conn
             self.connection._connection = mock_conn

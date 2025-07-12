@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-StageLinq Beat Info Example
+StagelinQ Beat Info Example
 
-This example demonstrates how to receive beat timing information from StageLinq devices.
+This example demonstrates how to receive beat timing information from StagelinQ devices.
 """
 
 import argparse
@@ -103,7 +103,7 @@ async def monitor_beat_info(device, duration: float, output_format: str) -> None
 
 async def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Monitor StageLinq beat information")
+    parser = argparse.ArgumentParser(description="Monitor StagelinQ beat information")
     parser.add_argument(
         "--timeout",
         type=float,
@@ -134,7 +134,7 @@ async def main() -> None:
 
     # Create discovery configuration
     config = DiscoveryConfig(
-        name="Python StageLinq Beat Monitor",
+        name="Python StagelinQ Beat Monitor",
         software_name="python-stagelinq",
         software_version="0.1.0",
         discovery_timeout=args.timeout,

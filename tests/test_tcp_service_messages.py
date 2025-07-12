@@ -242,7 +242,7 @@ def test_tcp_service_types_coverage(tcp_packet_data):
     service_messages = tcp_packet_data["service_messages"]
     services = [msg["service"] for msg in service_messages]
 
-    # Should cover the main StageLinQ services
+    # Should cover the main StagelinQ services
     expected_services = [
         "StateMap",  # State synchronization
         "BeatInfo",  # Beat information

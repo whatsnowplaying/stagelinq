@@ -18,7 +18,7 @@ Fixes #(issue number)
 ## Testing
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] New and existing unit tests pass locally with my changes
-- [ ] I have tested with real StageLinq devices (if applicable)
+- [ ] I have tested with real StagelinQ devices (if applicable)
 
 ## Device Testing (if applicable)
 - [ ] Tested with SC6000

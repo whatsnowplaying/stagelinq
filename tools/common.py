@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Common utilities for StageLinq CLI tools."""
+"""Common utilities for StagelinQ CLI tools."""
 
 import asyncio
 import logging
@@ -15,14 +15,14 @@ DEFAULT_CLIENT_TOKEN = Token(
 
 
 async def discover_and_connect(
-    app_name: str = "Python StageLinq Tool",
+    app_name: str = "Python StagelinQ Tool",
     software_name: str = "python-stagelinq",
     software_version: str = "0.1.0",
     discovery_timeout: float = 5.0,
     client_token: Token | None = None,
 ) -> tuple[Device | None, Any | None]:
     """
-    Discover StageLinq devices and connect to the first one found.
+    Discover StagelinQ devices and connect to the first one found.
 
     Args:
         app_name: Application name for discovery
@@ -46,7 +46,7 @@ async def discover_and_connect(
     )
 
     # Discover devices
-    logging.info("Discovering StageLinq devices for %s seconds...", discovery_timeout)
+    logging.info("Discovering StagelinQ devices for %s seconds...", discovery_timeout)
 
     async with discover_stagelinq_devices(config) as discovery:
         await discovery.start_announcing()
@@ -57,7 +57,7 @@ async def discover_and_connect(
         devices = await discovery.get_devices()
 
         if not devices:
-            logging.info("No StageLinq devices found")
+            logging.info("No StagelinQ devices found")
             return None, None
 
         device = devices[0]
@@ -78,7 +78,7 @@ async def discover_and_connect(
 
 
 async def setup_discovery_only(
-    app_name: str = "Python StageLinq Tool",
+    app_name: str = "Python StagelinQ Tool",
     software_name: str = "python-stagelinq",
     software_version: str = "0.1.0",
     discovery_timeout: float = 5.0,
@@ -102,7 +102,7 @@ async def setup_discovery_only(
         discovery_timeout=discovery_timeout,
     )
 
-    logging.info("Discovering StageLinq devices for %s seconds...", discovery_timeout)
+    logging.info("Discovering StagelinQ devices for %s seconds...", discovery_timeout)
 
     async with discover_stagelinq_devices(config) as discovery:
         await discovery.start_announcing()

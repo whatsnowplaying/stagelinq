@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enhanced DJ Analytics Dashboard using StageLinq Listener Architecture.
+"""Enhanced DJ Analytics Dashboard using StagelinQ Listener Architecture.
 
 This tool creates a comprehensive analytics server that multiple DJ devices
 can connect to simultaneously, providing real-time monitoring of:
@@ -30,11 +30,11 @@ from typing import Any
 # Add the parent directory to the path so we can import the local stagelinq module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from stagelinq import StageLinqListener
+from stagelinq import StagelinQListener
 from stagelinq.device import State, StateValueType
 from stagelinq.listener import BeatInfoService, StateMapService
 from stagelinq.messages import BeatEmitMessage, Token, parse_beat_message
-from stagelinq.protocol import StageLinqConnection
+from stagelinq.protocol import StagelinQConnection
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ class AnalyticsStateMapService(StateMapService):
         self.dashboard = analytics_dashboard
 
     async def handle_device_connection(
-        self, device_id: str, connection: StageLinqConnection
+        self, device_id: str, connection: StagelinQConnection
     ) -> None:
         """Handle StateMap service protocol with analytics."""
         try:
@@ -133,7 +133,7 @@ class AnalyticsBeatInfoService(BeatInfoService):
         self.dashboard = analytics_dashboard
 
     async def handle_device_connection(
-        self, device_id: str, connection: StageLinqConnection
+        self, device_id: str, connection: StagelinQConnection
     ) -> None:
         """Handle BeatInfo service protocol with analytics."""
         try:
@@ -163,7 +163,7 @@ class AnalyticsDashboard:
     def __init__(self, state_port: int = 51338, beat_port: int = 51339):
         self.state_port = state_port
         self.beat_port = beat_port
-        self.listener: StageLinqListener | None = None
+        self.listener: StagelinQListener | None = None
 
         # Analytics data storage
         self.devices: dict[str, DeviceMetrics] = {}
@@ -598,7 +598,7 @@ class AnalyticsDashboard:
     async def start(self) -> None:
         """Start the analytics dashboard."""
         # Create custom listener with analytics services
-        self.listener = StageLinqListener()
+        self.listener = StagelinQListener()
 
         # Add custom analytics services
         state_service = AnalyticsStateMapService(
@@ -717,7 +717,7 @@ async def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Enhanced DJ Analytics Dashboard using StageLinq Listener"
+        description="Enhanced DJ Analytics Dashboard using StagelinQ Listener"
     )
     parser.add_argument(
         "--state-port",

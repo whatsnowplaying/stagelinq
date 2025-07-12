@@ -1,4 +1,4 @@
-"""Tests for StageLinq message parsing using authoritative SC6000 packet captures."""
+"""Tests for StagelinQ message parsing using authoritative SC6000 packet captures."""
 
 from __future__ import annotations
 

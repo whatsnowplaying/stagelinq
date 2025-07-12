@@ -257,7 +257,7 @@ def test_sc6000_packet_lengths():
         assert len(packet_data) == 4 + length
 
         # Length should be reasonable
-        assert 0 < length < 1000  # Reasonable bounds for StageLinq messages
+        assert 0 < length < 1000  # Reasonable bounds for StagelinQ messages
 
 
 def test_sc6000_magic_bytes():

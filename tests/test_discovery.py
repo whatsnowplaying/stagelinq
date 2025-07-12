@@ -1,4 +1,4 @@
-"""Tests for StageLinq device discovery."""
+"""Tests for StagelinQ device discovery."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from stagelinq.discovery import (
     Device,
     DeviceState,
     DiscoveryConfig,
-    StageLinqDiscovery,
-    StageLinqError,
+    StagelinQDiscovery,
+    StagelinQError,
     discover_stagelinq_devices,
 )
 from stagelinq.messages import (
@@ -196,7 +196,7 @@ def test_discovery_config_defaults():
     """Test discovery configuration defaults."""
     config = DiscoveryConfig()
 
-    assert config.name == "Python StageLinq"
+    assert config.name == "Python StagelinQ"
     assert config.software_name == "python-stagelinq"
     assert config.software_version == "0.1.0"
     assert config.port == 51337
@@ -230,10 +230,10 @@ def test_discovery_config_custom():
 
 @pytest.mark.asyncio
 async def test_stagelinq_discovery_context_manager():
-    """Test StageLinq discovery context manager."""
+    """Test StagelinQ discovery context manager."""
     config = DiscoveryConfig(port=51340)  # Use different port to avoid conflicts
 
-    async with StageLinqDiscovery(config) as discovery:
+    async with StagelinQDiscovery(config) as discovery:
         assert discovery.config == config
         assert discovery._transport is not None
         assert discovery._protocol is not None
@@ -243,7 +243,7 @@ async def test_stagelinq_discovery_context_manager():
 async def test_stagelinq_discovery_start_stop():
     """Test explicit start/stop of discovery."""
     config = DiscoveryConfig(port=51341)
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     # Should start successfully
     await discovery.start()
@@ -258,7 +258,7 @@ async def test_stagelinq_discovery_start_stop():
 async def test_stagelinq_discovery_double_start():
     """Test that double start is handled gracefully."""
     config = DiscoveryConfig(port=51342)
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     await discovery.start()
     transport1 = discovery._transport
@@ -276,7 +276,7 @@ async def test_discover_stagelinq_devices_context_manager():
     config = DiscoveryConfig(port=51343)
 
     async with discover_stagelinq_devices(config) as discovery:
-        assert isinstance(discovery, StageLinqDiscovery)
+        assert isinstance(discovery, StagelinQDiscovery)
         assert discovery.config == config
 
 
@@ -285,7 +285,7 @@ async def test_discovery_get_devices_empty():
     """Test getting devices when none are available."""
     config = DiscoveryConfig(port=51344, discovery_timeout=0.1)
 
-    async with StageLinqDiscovery(config) as discovery:
+    async with StagelinQDiscovery(config) as discovery:
         devices = await discovery.get_devices()
         assert devices == []
 
@@ -295,7 +295,7 @@ async def test_discovery_announce_loop():
     """Test the announcement loop."""
     config = DiscoveryConfig(port=51345, announce_interval=0.1)
 
-    async with StageLinqDiscovery(config) as discovery:
+    async with StagelinQDiscovery(config) as discovery:
         # Start announcing
         await discovery.start_announcing()
         assert discovery._announce_task is not None
@@ -312,7 +312,7 @@ async def test_discovery_announce_loop():
 async def test_discovery_broadcast_addresses():
     """Test getting broadcast addresses."""
     config = DiscoveryConfig(port=51346)
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     addresses = discovery._get_broadcast_addresses()
 
@@ -325,7 +325,7 @@ async def test_discovery_broadcast_addresses():
 def test_discovery_message_handler():
     """Test the message handler with mock data."""
     config = DiscoveryConfig()
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     # Create a mock discovery message
     token = Token(b"remote_device_" + b"\x00" * 2)
@@ -360,7 +360,7 @@ def test_discovery_message_handler():
 def test_discovery_message_handler_own_message():
     """Test that we ignore our own messages."""
     config = DiscoveryConfig()
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     # Create a message with our own token
     msg = DiscoveryMessage(
@@ -390,7 +390,7 @@ def test_discovery_message_handler_own_message():
 def test_discovery_message_handler_leaving():
     """Test handling of leaving messages."""
     config = DiscoveryConfig()
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     # First add a device
     token = Token(b"leaving_device" + b"\x00" * 2)
@@ -438,7 +438,7 @@ def test_discovery_message_handler_leaving():
 def test_discovery_message_handler_invalid_data():
     """Test handling of invalid message data."""
     config = DiscoveryConfig()
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     # Send invalid data
     invalid_data = b"not a valid message"
@@ -454,7 +454,7 @@ def test_discovery_message_handler_invalid_data():
 def test_discovery_message_handler_malformed_but_valid_length():
     """Test handling of messages with valid length but invalid field values."""
     config = DiscoveryConfig()
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     # Test 1: Valid length but wrong magic bytes
     malformed_data = bytearray(48)
@@ -507,7 +507,7 @@ def test_discovery_message_handler_malformed_but_valid_length():
 async def test_discovery_discovered_devices_property():
     """Test the discovered_devices property."""
     config = DiscoveryConfig()
-    discovery = StageLinqDiscovery(config)
+    discovery = StagelinQDiscovery(config)
 
     # Initially empty
     devices = discovery.discovered_devices

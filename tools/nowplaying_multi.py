@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enhanced StageLinq now playing app with multi-device support.
+"""Enhanced StagelinQ now playing app with multi-device support.
 
 This version uses the new Listener architecture to monitor multiple DJ devices
 simultaneously, providing a comprehensive view of all connected equipment.
@@ -16,11 +16,11 @@ from pathlib import Path
 # Add the parent directory to the path so we can import the local stagelinq module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from stagelinq import StageLinqListener
+from stagelinq import StagelinQListener
 from stagelinq.device import State
 from stagelinq.listener import StateMapService
 from stagelinq.messages import Token
-from stagelinq.protocol import StageLinqConnection
+from stagelinq.protocol import StagelinQConnection
 
 # Suppress noisy protocol errors
 logging.getLogger("stagelinq.protocol").setLevel(logging.CRITICAL)
@@ -34,7 +34,7 @@ class MultiDeviceStateMapService(StateMapService):
         self.app = now_playing_app
 
     async def handle_device_connection(
-        self, device_id: str, connection: StageLinqConnection
+        self, device_id: str, connection: StagelinQConnection
     ) -> None:
         """Handle StateMap service protocol for a device."""
         try:
@@ -93,7 +93,7 @@ class MultiDeviceNowPlayingApp:
         self.devices: dict[str, dict] = {}  # device_id -> device_info
         self.deck_info: dict[str, dict] = {}  # device_id:deck_num -> deck_info
         self.last_update = datetime.now()
-        self.listener: StageLinqListener | None = None
+        self.listener: StagelinQListener | None = None
 
     def signal_handler(self, signum, frame):
         """Handle Ctrl+C gracefully."""
@@ -190,7 +190,7 @@ class MultiDeviceNowPlayingApp:
         """Display current status of all devices and decks."""
         # Clear screen and show header
         print("\033[H\033[J")  # Clear screen
-        print("StageLinq Multi-Device Now Playing")
+        print("StagelinQ Multi-Device Now Playing")
         print("=" * 80)
         print(f"Last update: {self.last_update.strftime('%H:%M:%S')}")
         print(
@@ -251,7 +251,7 @@ class MultiDeviceNowPlayingApp:
         print("Devices will connect TO this application")
 
         # Create custom listener with our state service
-        self.listener = StageLinqListener()
+        self.listener = StagelinQListener()
 
         # Add custom state service
         state_service = MultiDeviceStateMapService(
@@ -285,7 +285,7 @@ class MultiDeviceNowPlayingApp:
     async def start_discovery_mode(self, discovery_timeout: float = 3.0):
         """Start in discovery mode (traditional approach)."""
         print("Starting in Discovery mode")
-        print("Searching for StageLinq devices on the network...")
+        print("Searching for StagelinQ devices on the network...")
 
         config = DiscoveryConfig(discovery_timeout=discovery_timeout)
         devices_found = []
@@ -400,7 +400,7 @@ async def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Enhanced StageLinq Now Playing with multi-device support"
+        description="Enhanced StagelinQ Now Playing with multi-device support"
     )
     parser.add_argument(
         "--mode",
@@ -437,7 +437,7 @@ async def main():
     # Set up signal handler
     signal.signal(signal.SIGINT, app.signal_handler)
 
-    print("StageLinq Multi-Device Now Playing App")
+    print("StagelinQ Multi-Device Now Playing App")
     print("=" * 50)
 
     try:
@@ -449,19 +449,19 @@ async def main():
             await app.start_listener_mode(args.state_port)
         else:
             print("🔍 Starting Discovery Mode")
-            print("Searching for StageLinq devices on the network")
+            print("Searching for StagelinQ devices on the network")
             print("Press Ctrl+C to exit\n")
             await app.start_discovery_mode(args.discovery_timeout)
 
     except KeyboardInterrupt:
         pass
     finally:
-        print("\nThanks for using StageLinq Multi-Device Now Playing!")
+        print("\nThanks for using StagelinQ Multi-Device Now Playing!")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nThanks for using StageLinq Multi-Device Now Playing!")
+        print("\nThanks for using StagelinQ Multi-Device Now Playing!")
         sys.exit(0)

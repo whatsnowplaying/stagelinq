@@ -1,7 +1,7 @@
 """TCP service message fixtures from sc6000-mac-tcponly.pcapng.
 
 This module contains actual TCP service announcement packets captured from
-StageLinQ protocol communication.
+StagelinQ protocol communication.
 """
 
 # Service message packets (raw hex data)

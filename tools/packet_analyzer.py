@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StageLinq packet capture analyzer."""
+"""StagelinQ packet capture analyzer."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 class PacketAnalyzer:
-    """Analyzer for StageLinq packet captures."""
+    """Analyzer for StagelinQ packet captures."""
 
     def __init__(self, pcap_file: Path) -> None:
         self.pcap_file = pcap_file
@@ -577,7 +577,7 @@ class PacketAnalyzer:
 
 def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Analyze StageLinq packet captures")
+    parser = argparse.ArgumentParser(description="Analyze StagelinQ packet captures")
     parser.add_argument("pcap_file", type=Path, help="Path to PCAP file")
     parser.add_argument("--output", "-o", type=Path, help="Output JSON file")
     parser.add_argument(

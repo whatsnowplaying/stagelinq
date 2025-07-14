@@ -16,11 +16,12 @@ from pathlib import Path
 # Add the parent directory to the path so we can import the local stagelinq module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from stagelinq import StagelinQListener
+from stagelinq import DiscoveryConfig, StagelinQListener, discover_stagelinq_devices
 from stagelinq.device import State
 from stagelinq.listener import StateMapService
 from stagelinq.messages import Token
 from stagelinq.protocol import StagelinQConnection
+from stagelinq.value_names import DeckValueNames
 
 # Suppress noisy protocol errors
 logging.getLogger("stagelinq.protocol").setLevel(logging.CRITICAL)
@@ -122,12 +123,12 @@ class MultiDeviceNowPlayingApp:
                     "master": False,
                 }
 
-            print(f"\n🟢 Device connected: {device_id}")
+            print(f"\n[CONNECTED] Device connected: {device_id}")
 
     def unregister_device(self, device_id: str):
         """Unregister a device connection."""
         if device_id in self.devices:
-            print(f"\n🔴 Device disconnected: {device_id}")
+            print(f"\n[DISCONNECTED] Device disconnected: {device_id}")
             # Keep device info but mark as disconnected
             self.devices[device_id]["disconnected_at"] = datetime.now()
 
@@ -208,14 +209,14 @@ class MultiDeviceNowPlayingApp:
 
         # Group decks by device
         devices_with_decks = defaultdict(list)
-        for deck_key, deck_info in self.deck_info.items():
+        for _deck_key, deck_info in self.deck_info.items():
             device_id = deck_info["device_id"]
             devices_with_decks[device_id].append(deck_info)
 
         # Display each device and its decks
         for device_id, device_info in self.devices.items():
             is_connected = "disconnected_at" not in device_info
-            status_icon = "🟢" if is_connected else "🔴"
+            status_icon = "[ONLINE]" if is_connected else "[OFFLINE]"
 
             print(f"\n{status_icon} Device: {device_info['name']}")
             if is_connected:
@@ -253,22 +254,23 @@ class MultiDeviceNowPlayingApp:
         # Create custom listener with our state service
         self.listener = StagelinQListener()
 
-        # Add custom state service
+        # Add custom state service - we need to modify the service to accept the app as a kwarg
+        # For now, manually set up since MultiDeviceStateMapService expects app as 3rd arg
+        # TODO: Refactor MultiDeviceStateMapService to take app as kwarg
         state_service = MultiDeviceStateMapService(
             state_port, self.listener.token, self
         )
         self.listener.services["StateMap"] = state_service
 
-        # Update offered services
         from stagelinq.listener import ServiceInfo
 
-        self.listener.offered_services = [
+        self.listener.offered_services.append(
             ServiceInfo(
                 name="StateMap",
                 port=state_port,
                 handler_class=MultiDeviceStateMapService,
             )
-        ]
+        )
 
         await self.listener.start()
 
@@ -442,7 +444,7 @@ async def main():
 
     try:
         if args.mode == "listener":
-            print(f"🎧 Starting Listener Mode on port {args.state_port}")
+            print(f"[LISTENER] Starting Listener Mode on port {args.state_port}")
             print("Devices will connect TO this application")
             print("Configure your DJ equipment to connect to this computer's IP")
             print("Press Ctrl+C to exit\n")

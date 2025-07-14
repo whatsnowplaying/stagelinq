@@ -81,7 +81,7 @@ class NowPlayingApp:
                     devices = await discovery.get_devices()
 
                     if devices:
-                        device =  AsyncDevice(**vars(devices[0]))
+                        device = AsyncDevice(**vars(devices[0]))
                         print(f"Found device: {device.name}")
                         print(f"Connecting to {device.name}...")
                         break

@@ -253,7 +253,7 @@ class PacketAnalyzer:
         if len(msg_id_data) != 4:
             raise ValueError("Failed to read message ID")
 
-        msg_id = struct.unpack(">I", msg_id_data)[0]
+        _msg_id = struct.unpack(">I", msg_id_data)[0]
 
         # Read the remaining data
         remaining_data = reader.read()

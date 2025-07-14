@@ -536,7 +536,7 @@ class AnalyticsDashboard:
 
         # Active decks summary
         active_decks = []
-        for deck_key, deck in self.decks.items():
+        for _deck_key, deck in self.decks.items():
             if deck.is_playing or deck.current_track.is_complete():
                 active_decks.append(
                     {
@@ -601,6 +601,8 @@ class AnalyticsDashboard:
         self.listener = StagelinQListener()
 
         # Add custom analytics services
+        # Note: These services need the dashboard instance as a 3rd argument
+        # TODO: Refactor services to take dashboard as kwarg for cleaner API
         state_service = AnalyticsStateMapService(
             self.state_port, self.listener.token, self
         )
@@ -614,18 +616,20 @@ class AnalyticsDashboard:
         # Update offered services
         from stagelinq.listener import ServiceInfo
 
-        self.listener.offered_services = [
-            ServiceInfo(
-                name="StateMap",
-                port=self.state_port,
-                handler_class=AnalyticsStateMapService,
-            ),
-            ServiceInfo(
-                name="BeatInfo",
-                port=self.beat_port,
-                handler_class=AnalyticsBeatInfoService,
-            ),
-        ]
+        self.listener.offered_services.extend(
+            [
+                ServiceInfo(
+                    name="StateMap",
+                    port=self.state_port,
+                    handler_class=AnalyticsStateMapService,
+                ),
+                ServiceInfo(
+                    name="BeatInfo",
+                    port=self.beat_port,
+                    handler_class=AnalyticsBeatInfoService,
+                ),
+            ]
+        )
 
         await self.listener.start()
         logger.info("Analytics Dashboard started - listening for device connections")
@@ -654,8 +658,8 @@ class AnalyticsDashboard:
                 # Device status
                 if summary["devices"]:
                     print("\nDEVICE STATUS:")
-                    for device_id, device in summary["devices"].items():
-                        status = "🟢" if device["connected"] else "🔴"
+                    for _device_id, device in summary["devices"].items():
+                        status = "[ONLINE]" if device["connected"] else "[OFFLINE]"
                         rates = device["update_rates"]
                         print(f"  {status} {device['name']}")
                         print(
@@ -777,7 +781,7 @@ async def main():
             dashboard.print_status_loop(args.status_interval)
         )
 
-        print("\n🎧 DJ Analytics Dashboard Running")
+        print("\n[ANALYTICS] DJ Analytics Dashboard Running")
         print(f"StateMap Service: Port {args.state_port}")
         print(f"BeatInfo Service: Port {args.beat_port}")
         print("Waiting for DJ devices to connect...")

@@ -172,22 +172,58 @@ class TestFileTransferRequestMessage:
         assert msg.request_id == 456
 
     def test_serialize_request(self):
-        """Test serializing request message."""
+        """Test serializing request message with correct protocol structure."""
         msg = FileTransferRequestMessage(FILE_TRANSFER_REQUEST_DIRECTORY_LIST, 789)
 
         writer = io.BytesIO()
         msg.write_to(writer)
         data = writer.getvalue()
 
-        # Should contain request type, end marker, and final byte
+        # Should contain [length][fltx][request_id][message_type][size][path]
         reader = io.BytesIO(data)
-        request_type = int.from_bytes(reader.read(4), byteorder="big")
-        end_marker = int.from_bytes(reader.read(4), byteorder="big")
-        final_byte = reader.read(1)
 
-        assert request_type == FILE_TRANSFER_REQUEST_DIRECTORY_LIST
-        assert end_marker == FILE_TRANSFER_REQUEST_END
-        assert final_byte == b"\x01"
+        # Read and verify header
+        length = int.from_bytes(reader.read(4), byteorder="big")
+        magic = reader.read(4)
+        request_id = int.from_bytes(reader.read(4), byteorder="big")
+        message_type = int.from_bytes(reader.read(4), byteorder="big")
+        size_field = int.from_bytes(reader.read(4), byteorder="big")
+
+        assert magic == b"fltx"
+        assert request_id == 789
+        assert message_type == FILE_TRANSFER_REQUEST_DIRECTORY_LIST
+        assert size_field == 0  # Empty path
+        assert length == 16  # fltx + request_id + message_type + size = 4+4+4+4
+
+    def test_serialize_request_with_path(self):
+        """Test serializing request with path matches packet capture."""
+        path = "/DJ2 (USB 1)/Engine Library/m.db"
+        msg = FileTransferRequestMessage(0x7D1, 0, path=path)
+
+        writer = io.BytesIO()
+        msg.write_to(writer)
+        data = writer.getvalue()
+
+        # Should match Frame 28 from packet capture exactly
+        expected = bytes.fromhex(
+            "00000050666c747800000000000007d100000040002f0044004a003200200028005500530042002000310029002f0045006e00670069006e00650020004c006900620072006100720079002f006d002e00640062"
+        )
+        assert data == expected
+
+    def test_serialize_request_with_null_terminators(self):
+        """Test serializing request with null terminators matches packet capture."""
+        path = "/DJ2 (USB 1)/Engine Library/m.db"
+        msg = FileTransferRequestMessage(0x7D4, 0, path=path, add_null_terminators=True)
+
+        writer = io.BytesIO()
+        msg.write_to(writer)
+        data = writer.getvalue()
+
+        # Should match Frame 32 from packet capture exactly
+        expected = bytes.fromhex(
+            "00000054666c747800000000000007d400000040002f0044004a003200200028005500530042002000310029002f0045006e00670069006e00650020004c006900620072006100720079002f006d002e0064006200000000"
+        )
+        assert data == expected
 
 
 class TestFileTransferResponseMessage:

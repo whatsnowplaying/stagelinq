@@ -19,6 +19,20 @@ Protocol Notes:
 The request ID field after 'fltx' magic enables async request/response correlation.
 Database files can be streamed live by omitting the 0x7D6 completion message.
 
+FileTransfer Request Protocol Structure:
+[4 bytes: total_length][4 bytes: "fltx"][4 bytes: request_id][4 bytes: message_type][4 bytes: size][variable: path_data][optional: null_terminators]
+
+Key Findings from Packet Analysis:
+- Paths are UTF-16BE encoded when present
+- Size field indicates exact byte length of path data
+- Some requests (0x7D4) append 4 null bytes after path data
+- Simple requests (0x7D2 for root listing) can have empty path (size=0)
+
+Example Real Packets:
+- Simple request: 00000010666c747800000000000007d200000000
+- With path: 00000060666c747800000066000007d100000050[utf16be_path]
+- With null terminators: 00000064666c747800000066000007d400000050[utf16be_path]00000000
+
 Directory List Response Trailer (last 3 bytes):
 - Byte 1: First payload flag (0x01 = first chunk of response)
 - Byte 2: Last payload flag (0x01 = last chunk of response)
@@ -227,29 +241,105 @@ class FileAnnouncementMessage(Message):
 
 
 class FileTransferRequestMessage(Message):
-    """Request message for FileTransfer operations."""
+    """Request message for FileTransfer operations.
+
+    Protocol structure: [length][fltx][request_id][message_type][size][path][optional_null_terminators]
+    """
 
     def __init__(
         self,
         request_type: int = FILE_TRANSFER_REQUEST_DIRECTORY_LIST,
         request_id: int = 0,
+        path: str = "",
+        add_null_terminators: bool = False,
     ):
         self.request_type = request_type
         self.request_id = request_id
+        self.path = path
+        self.add_null_terminators = add_null_terminators
 
     def read_from(self, reader: BinaryIO) -> None:
-        """Read message from stream."""
-        # Read request type
+        """Read message from stream.
+
+        Expected format: [length][fltx][request_id][message_type][size][path_data]
+        """
+        # Read total length (first 4 bytes)
+        length_data = reader.read(4)
+        if len(length_data) != 4:
+            raise ValueError("Failed to read message length")
+        # Note: total_length is read but protocol parsing doesn't need it after validation
+        serializer.read_uint32(io.BytesIO(length_data))
+
+        # Read magic bytes
+        magic = reader.read(4)
+        if magic != FLTX_MAGIC:
+            raise ValueError(f"Invalid magic: expected {FLTX_MAGIC}, got {magic}")
+
+        # Read request ID
+        self.request_id = serializer.read_uint32(reader)
+
+        # Read message type
         self.request_type = serializer.read_uint32(reader)
 
+        # Read size field
+        path_size = serializer.read_uint32(reader)
+
+        # Read path data if present
+        if path_size > 0:
+            path_data = reader.read(path_size)
+            if len(path_data) != path_size:
+                raise ValueError(
+                    f"Expected {path_size} bytes of path data, got {len(path_data)}"
+                )
+            self.path = path_data.decode("utf-16be")
+        else:
+            self.path = ""
+
+        # Read any remaining null terminators
+        remaining = reader.read()
+        # Only set add_null_terminators if remaining bytes are actually null terminators
+        self.add_null_terminators = len(remaining) > 0 and all(
+            b == 0 for b in remaining
+        )
+
     def write_to(self, writer: BinaryIO) -> None:
-        """Write message to stream."""
-        # Write request type
+        """Write message to stream.
+
+        Format: [length][fltx][request_id][message_type][size][path_data][optional_null_terminators]
+        """
+        # Prepare path data
+        path_data = self.path.encode("utf-16be") if self.path else b""
+        path_size = len(path_data)
+
+        # Calculate total message length (excluding the length field itself)
+        message_length = (
+            4 + 4 + 4 + 4 + path_size
+        )  # fltx + request_id + message_type + size + path
+        if self.add_null_terminators:
+            message_length += 4  # Add 4 null bytes
+
+        # Write total length
+        serializer.write_uint32(writer, message_length)
+
+        # Write magic bytes
+        writer.write(FLTX_MAGIC)
+
+        # Write request ID
+        serializer.write_uint32(writer, self.request_id)
+
+        # Write message type
         serializer.write_uint32(writer, self.request_type)
-        # Write end marker
-        serializer.write_uint32(writer, FILE_TRANSFER_REQUEST_END)
-        # Write final marker
-        writer.write(b"\x01")
+
+        # Write size field
+        serializer.write_uint32(writer, path_size)
+
+        # Write path data
+        if path_data:
+            writer.write(path_data)
+
+        # Write optional null terminators
+        if self.add_null_terminators:
+            writer.write(b"\x00\x00\x00\x00")
 
 
 class FileTransferResponseMessage(Message):
@@ -640,10 +730,12 @@ class FileTransferConnection:
         if not self._connection:
             raise RuntimeError("Not connected")
 
-        # Send request for root directory listing with unique request ID
+        # Send request for root directory listing (0x7D2 with no path)
         request_id = self._get_next_request_id()
         request = FileTransferRequestMessage(
-            FILE_TRANSFER_REQUEST_DIRECTORY_LIST, request_id
+            FILE_TRANSFER_REQUEST_DIRECTORY_LIST,
+            request_id,
+            path="",  # Empty path for root directory listing
         )
 
         writer = io.BytesIO()
@@ -768,20 +860,11 @@ class FileTransferConnection:
         request_id = self._get_next_request_id()
         self._request_id_to_path[request_id] = path  # Track request for invalidation
         request = FileTransferRequestMessage(
-            FILE_TRANSFER_REQUEST_DIRECTORY_LIST, request_id
+            FILE_TRANSFER_REQUEST_DIRECTORY_LIST, request_id, path=path
         )
 
         writer = io.BytesIO()
         request.write_to(writer)
-
-        # Add path parameter as size-prefixed UTF-16BE string
-        if path:
-            path_data = path.encode("utf-16be")
-            serializer.write_uint32(writer, len(path_data))
-            writer.write(path_data)
-        else:
-            # Empty path for root directory listing
-            serializer.write_uint32(writer, 0)
 
         request_data = writer.getvalue()
         await self._connection.send_message(request_data)
@@ -876,15 +959,14 @@ class FileTransferConnection:
         # Use DATABASE_INFO request (0x7D4) - last 8 bytes contain size
         request_id = self._get_next_request_id()
         request = FileTransferRequestMessage(
-            FILE_TRANSFER_REQUEST_DATABASE_INFO, request_id
+            FILE_TRANSFER_REQUEST_DATABASE_INFO,
+            request_id,
+            path=database_path,
+            add_null_terminators=True,  # 0x7D4 requests need null terminators
         )
 
         writer = io.BytesIO()
         request.write_to(writer)
-        # Add database path as UTF-16BE string
-        if database_path:
-            path_data = database_path.encode("utf-16be")
-            writer.write(path_data)
 
         request_data = writer.getvalue()
         await self._connection.send_message(request_data)
@@ -925,20 +1007,31 @@ class FileTransferConnection:
             chunk_offset = chunk_index * CHUNK_SIZE
 
             # Send chunk request (0x7D5)
+            # This request type has custom format: [standard_header][path][null_term][offset][size]
             request_id = self._get_next_request_id()
-            request = FileTransferRequestMessage(
-                FILE_TRANSFER_REQUEST_DATABASE_READ, request_id
-            )
+
+            # Calculate path data
+            path_data = database_path.encode("utf-16be") if database_path else b""
+            path_size = len(path_data)
+
+            # Calculate total message length: fltx + request_id + message_type + size + path + null_term + offset + size
+            message_length = (
+                4 + 4 + 4 + 4 + path_size + 2 + 4 + 4
+            )  # +2 for null terminator
 
             writer = io.BytesIO()
-            request.write_to(writer)
 
-            # Add chunk request parameters
-            # Format: [database_path:utf16][chunk_offset:4][chunk_size:4]
-            if database_path:
-                path_data = database_path.encode("utf-16be")
+            # Write standard header
+            serializer.write_uint32(writer, message_length)
+            writer.write(FLTX_MAGIC)
+            serializer.write_uint32(writer, request_id)
+            serializer.write_uint32(writer, FILE_TRANSFER_REQUEST_DATABASE_READ)
+            serializer.write_uint32(writer, path_size)
+
+            # Write path and null terminator
+            if path_data:
                 writer.write(path_data)
-                writer.write(b"\x00\x00")  # Null terminator for string
+            writer.write(b"\x00\x00")  # Null terminator for string
 
             # Write chunk offset and size
             serializer.write_uint32(writer, chunk_offset)

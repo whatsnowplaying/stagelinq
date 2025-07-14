@@ -298,7 +298,9 @@ class FileTransferRequestMessage(Message):
         # Read any remaining null terminators
         remaining = reader.read()
         # Only set add_null_terminators if remaining bytes are actually null terminators
-        self.add_null_terminators = len(remaining) > 0 and all(b == 0 for b in remaining)
+        self.add_null_terminators = len(remaining) > 0 and all(
+            b == 0 for b in remaining
+        )
 
     def write_to(self, writer: BinaryIO) -> None:
         """Write message to stream.
